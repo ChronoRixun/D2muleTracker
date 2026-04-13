@@ -8,13 +8,16 @@ import type { ItemEntry } from './types';
 import rawIndex from '@/assets/data/item-index.json';
 
 const ITEM_INDEX: ItemEntry[] = rawIndex as ItemEntry[];
+const ITEM_MAP = new Map<string, ItemEntry>(
+  ITEM_INDEX.map((e) => [e.id, e]),
+);
 
 export function getItemIndex(): ItemEntry[] {
   return ITEM_INDEX;
 }
 
 export function getItemById(id: string): ItemEntry | undefined {
-  return ITEM_INDEX.find((e) => e.id === id);
+  return ITEM_MAP.get(id);
 }
 
 export function searchItems(query: string, limit = 20): ItemEntry[] {

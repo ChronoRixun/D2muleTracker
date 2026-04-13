@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { ItemAutocomplete } from '@/components/ItemAutocomplete';
-import { createItem } from '@/db/queries';
+import { createItem, listItemsByContainer } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
+import { getItemById } from '@/lib/itemIndex';
 import { categoryColor, colors, fontSize, radius, spacing } from '@/lib/theme';
 import type { ItemEntry, ItemLocation } from '@/lib/types';
 
@@ -30,7 +32,14 @@ export default function AddItemModal() {
   const [quantity, setQuantity] = useState('1');
   const [location, setLocation] = useState<ItemLocation>(null);
 
-  const save = async () => {
+  const resetForm = () => {
+    setSelected(null);
+    setNotes('');
+    setQuantity('1');
+    setLocation(null);
+  };
+
+  const persist = async () => {
     if (!selected || !containerId) return;
     await createItem(db, {
       containerId,
@@ -43,7 +52,42 @@ export default function AddItemModal() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
       () => undefined,
     );
+  };
+
+  const checkDuplicate = async (): Promise<boolean> => {
+    if (!selected || !containerId) return true;
+    const existing = await listItemsByContainer(db, containerId);
+    const dup = existing.find((i) => i.itemIndexId === selected.id);
+    if (!dup) return true;
+    const entry = getItemById(dup.itemIndexId);
+    const name = entry?.name ?? 'this item';
+    return new Promise<boolean>((resolve) => {
+      Alert.alert(
+        'Already in this container',
+        `This container already has ${name}. Add another?`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Add Another', onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      );
+    });
+  };
+
+  const save = async () => {
+    if (!selected || !containerId) return;
+    const proceed = await checkDuplicate();
+    if (!proceed) return;
+    await persist();
     router.back();
+  };
+
+  const saveAndAddAnother = async () => {
+    if (!selected || !containerId) return;
+    const proceed = await checkDuplicate();
+    if (!proceed) return;
+    await persist();
+    resetForm();
   };
 
   if (!selected) {
@@ -140,6 +184,9 @@ export default function AddItemModal() {
         <Pressable style={styles.ghostBtn} onPress={() => router.back()}>
           <Text style={styles.ghostBtnText}>Cancel</Text>
         </Pressable>
+        <Pressable style={styles.secondaryBtn} onPress={saveAndAddAnother}>
+          <Text style={styles.secondaryBtnText}>Save & Add Another</Text>
+        </Pressable>
         <Pressable style={styles.primaryBtn} onPress={save}>
           <Text style={styles.primaryBtnText}>Save</Text>
         </Pressable>
@@ -233,6 +280,21 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
     fontSize: fontSize.md,
+  },
+  secondaryBtn: {
+    flex: 1.4,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryBtnText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: fontSize.sm,
+    textAlign: 'center',
   },
 
   segmentWrap: {

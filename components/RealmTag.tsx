@@ -9,12 +9,19 @@ const ERA_LABEL: Record<Realm['era'], string> = {
   rotw: 'RoTW',
 };
 
+const REGION_LABEL: Record<NonNullable<Realm['region']>, string> = {
+  americas: 'AM',
+  europe: 'EU',
+  asia: 'AS',
+};
+
 export function RealmTag({ realm, compact = false }: { realm: Realm; compact?: boolean }) {
   const parts = [
     ERA_LABEL[realm.era],
     realm.mode === 'hardcore' ? 'HC' : 'SC',
     realm.ladder === 'ladder' ? 'Ladder' : 'NL',
   ];
+  if (realm.region) parts.push(REGION_LABEL[realm.region]);
   return (
     <View style={[styles.tag, compact && styles.compact]}>
       <Text style={styles.text}>{compact ? realm.name : `${realm.name} · ${parts.join(' ')}`}</Text>
