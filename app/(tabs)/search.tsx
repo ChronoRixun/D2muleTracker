@@ -17,7 +17,17 @@ import { findItemsByIndexIds, listRealms, searchNotes } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { getItemById, searchItems } from '@/lib/itemIndex';
 import { categoryColor, colors, fontSize, radius, spacing } from '@/lib/theme';
-import type { ItemEntry, Realm, SearchHit } from '@/lib/types';
+import type { ItemCategory, ItemEntry, Realm, SearchHit } from '@/lib/types';
+
+const CATEGORY_OPTIONS: ItemCategory[] = [
+  'unique',
+  'set',
+  'runeword',
+  'base',
+  'rune',
+  'gem',
+  'misc',
+];
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -30,6 +40,18 @@ export default function SearchScreen() {
   const [matchingEntries, setMatchingEntries] = useState<ItemEntry[]>([]);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [noteHits, setNoteHits] = useState<SearchHit[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<Set<ItemCategory>>(
+    new Set(),
+  );
+
+  const toggleCategory = (cat: ItemCategory) => {
+    setCategoryFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   useEffect(() => {
     listRealms(db).then(setRealms);
@@ -114,8 +136,9 @@ export default function SearchScreen() {
         out.push(h);
       }
     }
-    return out;
-  }, [hits, noteHits]);
+    if (categoryFilter.size === 0) return out;
+    return out.filter((h) => categoryFilter.has(h.entry.category));
+  }, [hits, noteHits, categoryFilter]);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
@@ -135,6 +158,7 @@ export default function SearchScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
+          style={{ flexGrow: 0 }}
         >
           <FilterChip
             label="All realms"
@@ -152,6 +176,38 @@ export default function SearchScreen() {
         </ScrollView>
       ) : null}
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+        style={{ flexGrow: 0 }}
+      >
+        {CATEGORY_OPTIONS.map((cat) => {
+          const active = categoryFilter.has(cat);
+          const color = categoryColor(cat);
+          return (
+            <Pressable
+              key={cat}
+              onPress={() => toggleCategory(cat)}
+              style={[
+                styles.catChip,
+                { borderColor: color },
+                active && { backgroundColor: color },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.catChipText,
+                  { color: active ? colors.bg : color },
+                ]}
+              >
+                {cat}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       {debounced.length < 2 ? (
         <View style={styles.hintWrap}>
           <Text style={styles.hint}>
@@ -162,9 +218,9 @@ export default function SearchScreen() {
       ) : combined.length === 0 ? (
         <View style={styles.hintWrap}>
           <Text style={styles.hint}>
-            No matches for “{debounced}”.
+            No matches for “{debounced}” on your mules yet.
             {matchingEntries.length > 0
-              ? `\n(${matchingEntries.length} item type${matchingEntries.length === 1 ? '' : 's'} in the database match, but you don't have any on your mules yet.)`
+              ? `\n(${matchingEntries.length} item type${matchingEntries.length === 1 ? '' : 's'} match in the database — add items to containers to find them here.)`
               : ''}
           </Text>
         </View>
@@ -279,6 +335,18 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: colors.bg,
     fontWeight: '700',
+  },
+  catChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    marginRight: spacing.xs,
+  },
+  catChipText: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    textTransform: 'capitalize',
   },
 
   hintWrap: {

@@ -1,4 +1,6 @@
+import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { colors, fontSize, radius, spacing } from '@/lib/theme';
 import type { Container } from '@/lib/types';
@@ -19,6 +21,7 @@ interface Props {
   itemCount: number;
   onPress?: () => void;
   onLongPress?: () => void;
+  onArchive?: () => void;
 }
 
 export function ContainerCard({
@@ -26,6 +29,7 @@ export function ContainerCard({
   itemCount,
   onPress,
   onLongPress,
+  onArchive,
 }: Props) {
   const isStash = container.type === 'shared_stash';
   const badge = isStash
@@ -34,9 +38,22 @@ export function ContainerCard({
       ? CLASS_GLYPH[container.class] ?? '?'
       : '?';
 
-  return (
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => undefined,
+    );
+    onPress?.();
+  };
+
+  const renderRightActions = () => (
+    <Pressable style={styles.archiveBtn} onPress={onArchive}>
+      <Text style={styles.archiveText}>Archive</Text>
+    </Pressable>
+  );
+
+  const card = (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       onLongPress={onLongPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -57,8 +74,24 @@ export function ContainerCard({
         <Text style={styles.countNum}>{itemCount}</Text>
         <Text style={styles.countLabel}>items</Text>
       </View>
+      <Text style={styles.moreHint}>⋯</Text>
     </Pressable>
   );
+
+  if (onArchive) {
+    return (
+      <ReanimatedSwipeable
+        friction={2}
+        rightThreshold={40}
+        renderRightActions={renderRightActions}
+        overshootRight={false}
+      >
+        {card}
+      </ReanimatedSwipeable>
+    );
+  }
+
+  return card;
 }
 
 const styles = StyleSheet.create({
@@ -117,5 +150,24 @@ const styles = StyleSheet.create({
   countLabel: {
     color: colors.textDim,
     fontSize: fontSize.xs,
+  },
+  moreHint: {
+    color: colors.textDim,
+    fontSize: fontSize.md,
+    marginLeft: spacing.xs,
+  },
+  archiveBtn: {
+    backgroundColor: '#b07d20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 90,
+    borderRadius: radius.md,
+    marginVertical: spacing.xs,
+    marginRight: spacing.lg,
+  },
+  archiveText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: fontSize.sm,
   },
 });

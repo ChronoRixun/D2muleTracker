@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -8,7 +8,10 @@ import {
   View,
 } from 'react-native';
 
+import { recentItemIndexIds } from '@/db/queries';
+import { useDatabase } from '@/hooks/useDatabase';
 import { useItemSearch } from '@/hooks/useItemSearch';
+import { getItemById } from '@/lib/itemIndex';
 import { colors, fontSize, radius, spacing } from '@/lib/theme';
 import type { ItemEntry } from '@/lib/types';
 
@@ -27,13 +30,33 @@ export function ItemAutocomplete({
   placeholder = 'Search items (e.g. shako, enigma, cta)…',
   emptyHint = 'Type at least 2 characters.',
 }: Props) {
+  const { db } = useDatabase();
   const [query, setQuery] = useState('');
+  const [recentItems, setRecentItems] = useState<ItemEntry[]>([]);
   const results = useItemSearch(query);
+
+  useEffect(() => {
+    let cancelled = false;
+    recentItemIndexIds(db)
+      .then((ids) => {
+        if (cancelled) return;
+        const entries = ids
+          .map((id) => getItemById(id))
+          .filter((e): e is ItemEntry => !!e);
+        setRecentItems(entries);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [db]);
 
   const handlePick = (entry: ItemEntry) => {
     Haptics.selectionAsync().catch(() => undefined);
     onSelect(entry);
   };
+
+  const showRecent = query.length < 2 && recentItems.length > 0;
 
   return (
     <View style={styles.container}>
@@ -48,7 +71,22 @@ export function ItemAutocomplete({
         onChangeText={setQuery}
       />
       {query.length < 2 ? (
-        <Text style={styles.empty}>{emptyHint}</Text>
+        showRecent ? (
+          <FlatList
+            data={recentItems}
+            keyExtractor={(item) => item.id}
+            ListHeaderComponent={
+              <Text style={styles.sectionHeader}>Recently Added</Text>
+            }
+            renderItem={({ item }) => (
+              <ItemRow entry={item} onPress={() => handlePick(item)} />
+            )}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingVertical: spacing.sm }}
+          />
+        ) : (
+          <Text style={styles.empty}>{emptyHint}</Text>
+        )
       ) : results.length === 0 ? (
         <Text style={styles.empty}>No items match “{query}”.</Text>
       ) : (
@@ -88,5 +126,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     textAlign: 'center',
     padding: spacing.xl,
+  },
+  sectionHeader: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
   },
 });

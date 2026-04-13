@@ -404,6 +404,21 @@ export async function deleteItem(
   await db.runAsync('DELETE FROM items WHERE id = ?', [id]);
 }
 
+export async function recentItemIndexIds(
+  db: SQLiteDatabase,
+  limit = 10,
+): Promise<string[]> {
+  const rows = await db.getAllAsync<{ item_index_id: string }>(
+    `SELECT item_index_id, MAX(created_at) AS last_used
+     FROM items
+     GROUP BY item_index_id
+     ORDER BY last_used DESC
+     LIMIT ?`,
+    [limit],
+  );
+  return rows.map((r) => r.item_index_id);
+}
+
 // ---- Cross-container search -----------------------------------------------
 
 export async function findItemsByIndexIds(
