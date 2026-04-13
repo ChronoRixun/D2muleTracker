@@ -1,16 +1,19 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ItemRow } from '@/components/ItemRow';
@@ -24,11 +27,13 @@ import {
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { getItemById } from '@/lib/itemIndex';
-import { colors, fontSize, radius, spacing } from '@/lib/theme';
+import { categoryColor, colors, fontSize, radius, spacing } from '@/lib/theme';
 import type {
   CharacterClass,
   Container,
   ContainerType,
+  ItemCategory,
+  ItemEntry,
   ItemLocation,
   ItemRecord,
 } from '@/lib/types';
@@ -56,6 +61,9 @@ export default function ContainerDetailScreen() {
   const [editTarget, setEditTarget] = useState<ItemRecord | null>(null);
   const [moveTarget, setMoveTarget] = useState<ItemRecord | null>(null);
   const [editContainer, setEditContainer] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'name' | 'category'>('newest');
+  const [filterCategory, setFilterCategory] = useState<ItemCategory | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -69,13 +77,76 @@ export default function ContainerDetailScreen() {
     reload();
   }, [reload, revision]);
 
-  const itemsWithEntries = useMemo(
-    () =>
-      items
-        .map((i) => ({ item: i, entry: getItemById(i.itemIndexId) }))
-        .filter((x) => x.entry),
-    [items],
-  );
+  const itemsWithEntries = useMemo(() => {
+    let list = items
+      .map((i) => ({ item: i, entry: getItemById(i.itemIndexId) }))
+      .filter((x): x is { item: ItemRecord; entry: ItemEntry } => !!x.entry);
+
+    if (filterCategory) {
+      list = list.filter((x) => x.entry.category === filterCategory);
+    }
+
+    switch (sortBy) {
+      case 'name':
+        list = [...list].sort((a, b) => a.entry.name.localeCompare(b.entry.name));
+        break;
+      case 'category':
+        list = [...list].sort(
+          (a, b) =>
+            a.entry.category.localeCompare(b.entry.category) ||
+            a.entry.name.localeCompare(b.entry.name),
+        );
+        break;
+      case 'newest':
+      default:
+        // Already sorted by created_at DESC from the query
+        break;
+    }
+
+    return list;
+  }, [items, sortBy, filterCategory]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Partial<Record<ItemCategory, number>> = {};
+    for (const i of items) {
+      const entry = getItemById(i.itemIndexId);
+      if (entry) counts[entry.category] = (counts[entry.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [items]);
+
+  const activeCategories = useMemo(() => {
+    const set = new Set<ItemCategory>();
+    for (const i of items) {
+      const entry = getItemById(i.itemIndexId);
+      if (entry) set.add(entry.category);
+    }
+    return Array.from(set);
+  }, [items]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  }, [reload]);
+
+  const handleSwipeDelete = (target: ItemRecord) => {
+    Alert.alert('Delete item?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteItem(db, target.id);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+            () => undefined,
+          );
+          bumpRevision();
+          reload();
+        },
+      },
+    ]);
+  };
 
   if (!container) {
     return (
@@ -98,6 +169,20 @@ export default function ContainerDetailScreen() {
               : `${container.class ?? 'Unknown'} · Lv ${container.level ?? '?'}`}{' '}
             · {items.length} items
           </Text>
+          {Object.keys(categoryCounts).length > 0 ? (
+            <View style={styles.countsRow}>
+              {(Object.keys(categoryCounts) as ItemCategory[]).map((cat, idx) => (
+                <Text
+                  key={cat}
+                  style={[styles.countItem, { color: categoryColor(cat) }]}
+                >
+                  {idx > 0 ? ' · ' : ''}
+                  {categoryCounts[cat]}{' '}
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </Text>
+              ))}
+            </View>
+          ) : null}
         </View>
         <Pressable
           style={styles.editBtn}
@@ -107,23 +192,126 @@ export default function ContainerDetailScreen() {
         </Pressable>
       </View>
 
+      {items.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sortRow}
+          style={{ flexGrow: 0 }}
+        >
+          {(['newest', 'name', 'category'] as const).map((s) => (
+            <Pressable
+              key={s}
+              style={[
+                styles.sortChip,
+                sortBy === s && styles.sortChipActive,
+              ]}
+              onPress={() => setSortBy(s)}
+            >
+              <Text
+                style={[
+                  styles.sortChipText,
+                  sortBy === s && styles.sortChipTextActive,
+                ]}
+              >
+                {s === 'newest' ? 'Newest' : s === 'name' ? 'Name' : 'Type'}
+              </Text>
+            </Pressable>
+          ))}
+          {activeCategories.length > 1 ? (
+            <>
+              <View style={styles.sortDivider} />
+              <Pressable
+                style={[
+                  styles.sortChip,
+                  !filterCategory && styles.sortChipActive,
+                ]}
+                onPress={() => setFilterCategory(null)}
+              >
+                <Text
+                  style={[
+                    styles.sortChipText,
+                    !filterCategory && styles.sortChipTextActive,
+                  ]}
+                >
+                  All
+                </Text>
+              </Pressable>
+              {activeCategories.map((cat) => {
+                const active = filterCategory === cat;
+                return (
+                  <Pressable
+                    key={cat}
+                    style={[
+                      styles.sortChip,
+                      active && { backgroundColor: categoryColor(cat), borderColor: categoryColor(cat) },
+                    ]}
+                    onPress={() =>
+                      setFilterCategory(active ? null : cat)
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.sortChipText,
+                        { color: active ? colors.bg : categoryColor(cat) },
+                        active && { fontWeight: '700' },
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </>
+          ) : null}
+        </ScrollView>
+      ) : null}
+
       {itemsWithEntries.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyBody}>
-            No items yet. Use “Add Item” to catalog gear on this container.
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.emptyWrap}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        >
+          {items.length === 0 ? (
+            <>
+              <Text style={styles.emptyBody}>No items yet.</Text>
+              <Text style={styles.emptyBody}>
+                Tap “+ Add Item” below to start cataloging gear on this
+                container.
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.emptyBody}>
+              No items match the current filter.
+            </Text>
+          )}
+        </ScrollView>
       ) : (
         <FlatList
           data={itemsWithEntries}
           keyExtractor={(row) => row.item.id}
           contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
           renderItem={({ item: row }) => (
-            <ItemRow
-              entry={row.entry!}
-              notes={row.item.notes}
-              quantity={row.item.quantity}
+            <SwipeableItemRow
+              entry={row.entry}
+              item={row.item}
               onPress={() => setEditTarget(row.item)}
+              onDelete={() => handleSwipeDelete(row.item)}
             />
           )}
         />
@@ -181,6 +369,9 @@ export default function ContainerDetailScreen() {
         onSelect={async (newContainerId) => {
           if (!moveTarget) return;
           await updateItem(db, moveTarget.id, { containerId: newContainerId });
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+            () => undefined,
+          );
           setMoveTarget(null);
           bumpRevision();
           reload();
@@ -199,6 +390,42 @@ export default function ContainerDetailScreen() {
         }}
       />
     </SafeAreaView>
+  );
+}
+
+// ---- Swipeable item row ---------------------------------------------------
+
+function SwipeableItemRow({
+  entry,
+  item,
+  onPress,
+  onDelete,
+}: {
+  entry: ItemEntry;
+  item: ItemRecord;
+  onPress: () => void;
+  onDelete: () => void;
+}) {
+  const renderRightActions = () => (
+    <Pressable style={styles.swipeDeleteBtn} onPress={onDelete}>
+      <Text style={styles.swipeDeleteText}>Delete</Text>
+    </Pressable>
+  );
+
+  return (
+    <ReanimatedSwipeable
+      friction={2}
+      rightThreshold={40}
+      renderRightActions={renderRightActions}
+      overshootRight={false}
+    >
+      <ItemRow
+        entry={entry}
+        notes={item.notes}
+        quantity={item.quantity}
+        onPress={onPress}
+      />
+    </ReanimatedSwipeable>
   );
 }
 
@@ -740,4 +967,65 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   disabled: { opacity: 0.4 },
+
+  countsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  countItem: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
+
+  sortRow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: 6,
+    alignItems: 'center',
+  },
+  sortChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 6,
+  },
+  sortChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  sortChipText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    textTransform: 'capitalize',
+  },
+  sortChipTextActive: {
+    color: colors.bg,
+    fontWeight: '700',
+  },
+  sortDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.xs,
+  },
+
+  swipeDeleteBtn: {
+    backgroundColor: colors.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: radius.md,
+    marginVertical: 3,
+    marginRight: spacing.lg,
+  },
+  swipeDeleteText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: fontSize.sm,
+  },
 });

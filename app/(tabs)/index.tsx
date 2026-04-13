@@ -4,6 +4,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   SectionList,
   StyleSheet,
@@ -55,7 +56,7 @@ const CLASSES: CharacterClass[] = [
 export default function MulesScreen() {
   const router = useRouter();
   const { db, bumpRevision } = useDatabase();
-  const { realms, containers, counts, reload } = useContainers();
+  const { realms, containers, counts, loading, reload } = useContainers();
   const [showAddContainer, setShowAddContainer] = useState(false);
   const [showAddRealm, setShowAddRealm] = useState(false);
 
@@ -94,7 +95,7 @@ export default function MulesScreen() {
             characters by era (Classic / LoD / RoTW), mode, and ladder.
           </Text>
           <Pressable
-            style={styles.primaryBtn}
+            style={styles.standaloneBtn}
             onPress={() => setShowAddRealm(true)}
           >
             <Text style={styles.primaryBtnText}>Create a Realm</Text>
@@ -128,6 +129,14 @@ export default function MulesScreen() {
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={{ paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={reload}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
           renderSectionHeader={({ section }) => (
             <View style={styles.sectionHeader}>
               <RealmTag realm={section.realm} />
@@ -139,6 +148,7 @@ export default function MulesScreen() {
               itemCount={counts[item.id] ?? 0}
               onPress={() => router.push(`/container/${item.id}`)}
               onLongPress={() => handleArchive(item)}
+              onArchive={() => handleArchive(item)}
             />
           )}
         />
@@ -575,6 +585,14 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.md,
     alignItems: 'center',
+  },
+  standaloneBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    alignSelf: 'center',
   },
   primaryBtnText: {
     color: colors.bg,
