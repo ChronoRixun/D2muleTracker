@@ -91,7 +91,6 @@ const ROTW_RUNEWORD_NAMES = new Set([
   'dominion',
   'entropy',
   'hex',
-  'malice',
   'omen',
   'penance',
   'pestilence',
@@ -104,16 +103,40 @@ const ROTW_RUNEWORD_NAMES = new Set([
   'wonder',
 ]);
 
+// Item type codes (from d2data armor/weapons/misc rows) that are RoTW-only.
+const ROTW_TYPE_CODES = new Set(['grim']);
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Whole-word match: anchors \b only where the keyword itself starts/ends with a
+// word character, so keywords containing apostrophes ("ars al'", "gheed's
+// wager") still match correctly. Prevents e.g. "sling" from matching inside
+// "Doomslinger".
+function keywordMatches(keyword: string, text: string): boolean {
+  const startAnchor = /^\w/.test(keyword) ? '\\b' : '';
+  const endAnchor = /\w$/.test(keyword) ? '\\b' : '';
+  const re = new RegExp(`${startAnchor}${escapeRegex(keyword)}${endAnchor}`, 'i');
+  return re.test(text);
+}
+
 function detectEra(raw: {
   version?: number | string;
   expansion?: number | string;
   name?: string;
+  type?: string;
 }): Era {
   const version = Number(raw.version ?? 0);
   const expansion = Number(raw.expansion ?? 0);
-  const nameLc = (raw.name ?? '').toLowerCase();
+  const name = raw.name ?? '';
+  const typeLc = (raw.type ?? '').toLowerCase();
 
-  if (version >= 101 || ROTW_NAME_KEYWORDS.some((k) => nameLc.includes(k))) {
+  if (
+    version >= 101 ||
+    (typeLc && ROTW_TYPE_CODES.has(typeLc)) ||
+    ROTW_NAME_KEYWORDS.some((k) => keywordMatches(k, name))
+  ) {
     return 'rotw';
   }
   if (expansion === 1 || version === 100) return 'lod';
@@ -274,7 +297,12 @@ function flattenUniques(
     const code: string = r.code ?? '';
     const baseName = baseNames[code] ?? r.type ?? '';
     const name = resolveName(r, strings, `Unique ${i}`);
-    const era = detectEra({ version: r.version, expansion: r.expansion, name });
+    const era = detectEra({
+      version: r.version,
+      expansion: r.expansion,
+      name,
+      type: r.type,
+    });
     out.push({
       id: `unique-${r.__key ?? i}`,
       name,
@@ -314,7 +342,12 @@ function flattenSetItems(
       : typeof setKey === 'string'
         ? setKey
         : '';
-    const era = detectEra({ version: r.version, expansion: r.expansion, name });
+    const era = detectEra({
+      version: r.version,
+      expansion: r.expansion,
+      name,
+      type: r.type,
+    });
     out.push({
       id: `set-${r.__key ?? i}`,
       name,
@@ -351,7 +384,7 @@ function flattenRunewords(src: any, strings: Strings): ItemEntry[] {
     const nameLc = name.toLowerCase();
     const era: Era =
       ROTW_RUNEWORD_NAMES.has(nameLc) ||
-      ROTW_NAME_KEYWORDS.some((k) => nameLc.includes(k))
+      ROTW_NAME_KEYWORDS.some((k) => keywordMatches(k, name))
         ? 'rotw'
         : 'lod';
     out.push({
@@ -386,7 +419,12 @@ function flattenMisc(src: any, strings: Strings): ItemEntry[] {
         : /gem|skull/i.test(code) || /gem|skull/i.test(type)
           ? 'gem'
           : 'misc';
-    const era = detectEra({ version: r.version, expansion: r.expansion, name });
+    const era = detectEra({
+      version: r.version,
+      expansion: r.expansion,
+      name,
+      type,
+    });
     out.push({
       id: `misc-${code || i}`,
       name,
@@ -419,6 +457,7 @@ function flattenBases(
         version: r.version,
         expansion: r.expansion,
         name,
+        type: r.type,
       });
       out.push({
         id: `base-${kind}-${code}`,
@@ -504,8 +543,24 @@ async function main() {
   const uniqueEntries = flattenUniques(uniques, strings, baseNames);
   const setEntries = flattenSetItems(setitems, sets, strings, baseNames);
   const runewordEntries = flattenRunewords(runewords, strings);
-  const miscEntries = flattenMisc(misc, strings);
+  const miscEntriesRaw = flattenMisc(misc, strings);
   const baseEntries = flattenBases(armor, weapons, strings);
+
+  // Dedup misc entries: drop any whose display name already appears as a
+  // unique/set item (e.g. "Defender's Fire" Colossal Ancient jewels that come
+  // through both uniqueitems.json and misc.json) or any intra-misc duplicates
+  // where different internal codes share a display name (e.g. Healing Potion
+  // tiers, generic "Grand Charm" / "Jewel").
+  const seenNames = new Set<string>();
+  for (const e of uniqueEntries) seenNames.add(e.name.toLowerCase());
+  for (const e of setEntries) seenNames.add(e.name.toLowerCase());
+  const miscEntries: ItemEntry[] = [];
+  for (const e of miscEntriesRaw) {
+    const key = e.name.toLowerCase();
+    if (seenNames.has(key)) continue;
+    seenNames.add(key);
+    miscEntries.push(e);
+  }
 
   const all = [
     ...uniqueEntries,
