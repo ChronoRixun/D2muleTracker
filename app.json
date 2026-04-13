@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "d2muletracker",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.chronorixun.d2muletracker"
@@ -22,7 +21,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

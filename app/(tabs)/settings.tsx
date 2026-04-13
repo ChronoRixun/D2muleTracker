@@ -1,5 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -66,10 +66,10 @@ export default function SettingsScreen() {
   const handleWriteBackupFile = async () => {
     const payload = await exportAll(db);
     const json = JSON.stringify(payload, null, 2);
-    const dir = FileSystem.documentDirectory ?? '';
-    const path = `${dir}d2muletracker-backup-${Date.now()}.json`;
-    await FileSystem.writeAsStringAsync(path, json);
-    Alert.alert('Backup saved', path);
+    const file = new File(Paths.document, `d2muletracker-backup-${Date.now()}.json`);
+    file.create();
+    file.write(json);
+    Alert.alert('Backup saved', file.uri);
   };
 
   const handleImport = async (mode: 'merge' | 'replace') => {
@@ -96,7 +96,7 @@ export default function SettingsScreen() {
       });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
-      const contents = await FileSystem.readAsStringAsync(asset.uri);
+      const contents = await new File(asset.uri).text();
       setImportText(contents);
     } catch (e: any) {
       Alert.alert('Could not read file', e.message ?? 'Unknown error');
