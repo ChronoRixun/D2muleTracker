@@ -1,0 +1,473 @@
+/**
+ * Builds the bundled item-index.json used by the app for autocomplete
+ * and display-name lookups. Fetches source JSON from blizzhackers/d2data
+ * on GitHub, flattens into a single searchable array and writes to
+ * assets/data/item-index.json.
+ *
+ * Run via: npm run build:item-index
+ */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+import type { Era, ItemCategory, ItemEntry } from '../lib/types';
+
+const REPO_RAW = 'https://raw.githubusercontent.com/blizzhackers/d2data/master/json';
+const CACHE_DIR = path.join(__dirname, '.cache');
+const OUT_DIR = path.join(__dirname, '..', 'assets', 'data');
+const OUT_FILE = path.join(OUT_DIR, 'item-index.json');
+
+const SOURCES = [
+  'uniqueitems.json',
+  'setitems.json',
+  'sets.json',
+  'runes.json',
+  'items.json',
+  'armor.json',
+  'weapons.json',
+  'misc.json',
+  'allstrings-eng.json',
+] as const;
+
+type SourceName = (typeof SOURCES)[number];
+
+async function fetchJson(name: SourceName): Promise<any> {
+  if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+  const cached = path.join(CACHE_DIR, name);
+  if (fs.existsSync(cached)) {
+    return JSON.parse(fs.readFileSync(cached, 'utf8'));
+  }
+  const url = `${REPO_RAW}/${name}`;
+  console.log(`  fetching ${url}`);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+  const text = await res.text();
+  fs.writeFileSync(cached, text);
+  return JSON.parse(text);
+}
+
+// ---- Era detection --------------------------------------------------------
+
+// Item base codes that signal RoTW content (grimoires, renewed/latent sunders,
+// Colossal Ancient jewels, new weapon bases, etc.). The blizzhackers data
+// uses `version: 101` for RoTW additions in most files, but we keep a
+// keyword-based fallback for the uniques/setitems whose names are the
+// canonical signal.
+const ROTW_NAME_KEYWORDS = [
+  'grimoire',
+  'renewed',
+  'latent',
+  'sunder',
+  'colossal ancient',
+  "opalvein's",
+  "sling's",
+  "hellwarden's",
+  'dreadfang',
+  'wraithstep',
+  'warlock',
+];
+
+function detectEra(raw: {
+  version?: number | string;
+  expansion?: number | string;
+  name?: string;
+}): Era {
+  const version = Number(raw.version ?? 0);
+  const expansion = Number(raw.expansion ?? 0);
+  const nameLc = (raw.name ?? '').toLowerCase();
+
+  if (version >= 101 || ROTW_NAME_KEYWORDS.some((k) => nameLc.includes(k))) {
+    return 'rotw';
+  }
+  if (expansion === 1 || version === 100) return 'lod';
+  return 'classic';
+}
+
+// ---- Display name resolution ---------------------------------------------
+
+interface Strings {
+  [key: string]: string;
+}
+
+function buildStringLookup(
+  allstrings: Array<{ Key: string; enUS?: string; id?: string | number }>,
+): Strings {
+  // The d2data allstrings file is an array of { Key, enUS, ... }.
+  const out: Strings = {};
+  for (const row of allstrings) {
+    if (row && row.Key && row.enUS) out[row.Key] = row.enUS;
+  }
+  return out;
+}
+
+function resolveName(raw: any, strings: Strings, fallback: string): string {
+  const keys = [raw.name, raw.namestr, raw.index, raw.NameStr].filter(Boolean);
+  for (const k of keys) {
+    if (typeof k === 'string' && strings[k]) return strings[k];
+  }
+  return raw.name ?? raw.index ?? fallback;
+}
+
+// ---- Nickname seed map ----------------------------------------------------
+
+const NICKNAMES: Record<string, string[]> = {
+  'Harlequin Crest': ['shako', 'harly'],
+  'Skin of the Vipermagi': ['vipermagi', 'vmagi', 'viper'],
+  'Herald of Zakarum': ['hoz'],
+  "Stone of Jordan": ['soj'],
+  "Bul-Kathos' Wedding Band": ['bk', 'bkwb'],
+  'Mara\u2019s Kaleidoscope': ['mara', 'maras'],
+  "Mara's Kaleidoscope": ['mara', 'maras'],
+  'The Stone of Jordan': ['soj'],
+  'Arachnid Mesh': ['arach', 'spider'],
+  'Enigma': ['enigma'],
+  'Infinity': ['inf', 'infinity'],
+  'Call to Arms': ['cta'],
+  'Heart of the Oak': ['hoto'],
+  'Spirit': ['spirit'],
+  'Insight': ['insight'],
+  'Grief': ['grief'],
+  'Breath of the Dying': ['botd'],
+  'Death': ['death'],
+  'Fortitude': ['fort', 'fortitude'],
+  'Chains of Honor': ['coh'],
+  'Hellwarden\u2019s Will': ['hellwarden'],
+  "Hellwarden's Will": ['hellwarden'],
+  'War Traveler': ['wt', 'wtrav'],
+  'Gore Rider': ['gores'],
+  'Lightsabre': ['lightsabre', 'lsabre'],
+  'Titan\u2019s Revenge': ['titans'],
+  "Titan's Revenge": ['titans'],
+  'Crown of Ages': ['coa'],
+  'Shaftstop': ['shaft'],
+  'Stormshield': ['ss', 'stormshield'],
+  'Griffon\u2019s Eye': ['griffons', 'griffs'],
+  "Griffon's Eye": ['griffons', 'griffs'],
+};
+
+// ---- Parsers --------------------------------------------------------------
+
+function parseObjectLike<T>(src: unknown): Array<T & { __key: string }> {
+  if (Array.isArray(src)) {
+    return src.map((v, i) => ({ ...(v as T), __key: String(i) }));
+  }
+  if (src && typeof src === 'object') {
+    return Object.entries(src as Record<string, T>).map(([k, v]) => ({
+      ...(v as T),
+      __key: k,
+    }));
+  }
+  return [];
+}
+
+function buildSearchTerms(name: string, baseName: string): string[] {
+  const terms = new Set<string>();
+  terms.add(name.toLowerCase());
+  if (baseName) terms.add(baseName.toLowerCase());
+  const nicks = NICKNAMES[name] ?? [];
+  for (const n of nicks) terms.add(n.toLowerCase());
+  // Word-level terms help with "flail" matching "Sacred Flail", etc.
+  for (const part of name.toLowerCase().split(/\s+/)) {
+    if (part.length >= 3) terms.add(part);
+  }
+  return Array.from(terms);
+}
+
+function buildBaseNameLookup(
+  items: any[],
+  armor: any[],
+  weapons: any[],
+): Record<string, string> {
+  // Maps internal code (e.g. "uap") to a display base name (e.g. "Sacred Armor").
+  const map: Record<string, string> = {};
+  const push = (rows: any[]) => {
+    for (const r of rows) {
+      const code: string | undefined = r.code ?? r.Code ?? r.__key;
+      const name: string | undefined = r.name ?? r.namestr ?? r.Name;
+      if (code && name) map[code] = name;
+    }
+  };
+  push(items);
+  push(armor);
+  push(weapons);
+  return map;
+}
+
+// ---- Category-specific flatteners ----------------------------------------
+
+function flattenUniques(
+  src: any,
+  strings: Strings,
+  baseNames: Record<string, string>,
+): ItemEntry[] {
+  const rows = parseObjectLike<any>(src);
+  const out: ItemEntry[] = [];
+  rows.forEach((r, i) => {
+    if (!r || r.enabled === 0) return;
+    const code: string = r.code ?? '';
+    const baseName = baseNames[code] ?? r.type ?? '';
+    const name = resolveName(r, strings, `Unique ${i}`);
+    const era = detectEra({ version: r.version, expansion: r.expansion, name });
+    out.push({
+      id: `unique-${r.__key ?? i}`,
+      name,
+      baseName,
+      category: 'unique',
+      itemType: classifyType(code, baseName),
+      reqLevel: Number(r['lvl req'] ?? r.lvlReq ?? r.lvl ?? 0),
+      code,
+      era,
+      searchTerms: buildSearchTerms(name, baseName),
+    });
+  });
+  return out;
+}
+
+function flattenSetItems(
+  src: any,
+  sets: any,
+  strings: Strings,
+  baseNames: Record<string, string>,
+): ItemEntry[] {
+  const setRows = parseObjectLike<any>(sets);
+  const setByIndex: Record<string, any> = {};
+  for (const s of setRows) setByIndex[s.index ?? s.__key] = s;
+
+  const rows = parseObjectLike<any>(src);
+  const out: ItemEntry[] = [];
+  rows.forEach((r, i) => {
+    if (!r) return;
+    const code: string = r.item ?? r.code ?? '';
+    const baseName = baseNames[code] ?? r.type ?? '';
+    const name = resolveName(r, strings, `Set Item ${i}`);
+    const setKey = r.set ?? r['set name'] ?? '';
+    const setInfo = setByIndex[setKey];
+    const setName = setInfo
+      ? resolveName(setInfo, strings, setKey)
+      : typeof setKey === 'string'
+        ? setKey
+        : '';
+    const era = detectEra({ version: r.version, expansion: r.expansion, name });
+    out.push({
+      id: `set-${r.__key ?? i}`,
+      name,
+      baseName,
+      category: 'set',
+      itemType: classifyType(code, baseName),
+      reqLevel: Number(r['lvl req'] ?? r.lvlReq ?? r.lvl ?? 0),
+      code,
+      setName: setName || undefined,
+      era,
+      searchTerms: buildSearchTerms(name, baseName),
+    });
+  });
+  return out;
+}
+
+function flattenRunewords(src: any, strings: Strings): ItemEntry[] {
+  const rows = parseObjectLike<any>(src);
+  const out: ItemEntry[] = [];
+  rows.forEach((r, i) => {
+    if (!r) return;
+    if (Number(r.complete ?? 0) !== 1) return;
+    // The object key is the display name in d2data (e.g. "Enigma"). The
+    // `*Rune Name` field mirrors it; `Name` is the allstrings key ("Runeword33").
+    const name: string =
+      r['*Rune Name'] ?? (r.__key && r.__key !== r.Name ? r.__key : null) ??
+      (strings[r.Name] ?? r.Name ?? `Runeword ${i}`);
+    const runes: string = r['*RunesUsed'] ?? '';
+    const types: string[] = [];
+    for (let n = 1; n <= 6; n++) {
+      const t = r[`itype${n}`];
+      if (t) types.push(String(t));
+    }
+    const patch = Number(r['*Patch Release'] ?? 0);
+    const era: Era =
+      patch >= 300 || ROTW_NAME_KEYWORDS.some((k) => name.toLowerCase().includes(k))
+        ? 'rotw'
+        : 'lod';
+    out.push({
+      id: `runeword-${r.__key ?? i}`,
+      name,
+      baseName: types.join(', '),
+      category: 'runeword',
+      itemType: types[0] ?? 'runeword',
+      reqLevel: Number(r.levelreq ?? r.LvlReq ?? 0),
+      code: name.toLowerCase().replace(/\s+/g, '-'),
+      runes,
+      runewordTypes: types,
+      era,
+      searchTerms: buildSearchTerms(name, ''),
+    });
+  });
+  return out;
+}
+
+function flattenMisc(src: any, strings: Strings): ItemEntry[] {
+  const rows = parseObjectLike<any>(src);
+  const out: ItemEntry[] = [];
+  rows.forEach((r, i) => {
+    if (!r) return;
+    const code: string = r.code ?? r.__key;
+    const name = resolveName(r, strings, r.name ?? code ?? `Misc ${i}`);
+    if (!name) return;
+    const type: string = r.type ?? r.code ?? '';
+    const category: ItemCategory =
+      /rune\d/i.test(code) || type === 'rune'
+        ? 'rune'
+        : /gem|skull/i.test(code) || /gem|skull/i.test(type)
+          ? 'gem'
+          : 'misc';
+    const era = detectEra({ version: r.version, expansion: r.expansion, name });
+    out.push({
+      id: `misc-${code || i}`,
+      name,
+      baseName: name,
+      category,
+      itemType: classifyType(code, name),
+      reqLevel: Number(r['lvl req'] ?? 0),
+      code,
+      era,
+      searchTerms: buildSearchTerms(name, ''),
+    });
+  });
+  return out;
+}
+
+function flattenBases(
+  armor: any,
+  weapons: any,
+  strings: Strings,
+): ItemEntry[] {
+  const out: ItemEntry[] = [];
+  const add = (rows: any[], kind: 'armor' | 'weapon') => {
+    rows.forEach((r, i) => {
+      if (!r) return;
+      const code: string = r.code ?? r.Code ?? r.__key;
+      if (!code) return;
+      const name =
+        resolveName(r, strings, r.name ?? r.namestr ?? code ?? `${kind} ${i}`);
+      const era = detectEra({
+        version: r.version,
+        expansion: r.expansion,
+        name,
+      });
+      out.push({
+        id: `base-${kind}-${code}`,
+        name,
+        baseName: name,
+        category: 'base',
+        itemType: classifyType(code, name),
+        reqLevel: Number(r.levelreq ?? r['lvl req'] ?? 0),
+        code,
+        era,
+        searchTerms: buildSearchTerms(name, ''),
+      });
+    });
+  };
+  add(parseObjectLike<any>(armor), 'armor');
+  add(parseObjectLike<any>(weapons), 'weapon');
+  return out;
+}
+
+function classifyType(code: string, name: string): string {
+  const lc = (name + ' ' + code).toLowerCase();
+  if (/helm|cap|crown|circlet|mask|shako|tiara|diadem|casque|basinet|armet|bone visage|sallet|hood|coif|skull|bone helm/.test(lc))
+    return 'helm';
+  if (/ring|rin/.test(lc) && lc.length < 20) return 'ring';
+  if (/amu|amulet/.test(lc)) return 'amulet';
+  if (/boot|greaves/.test(lc)) return 'boots';
+  if (/glove|gauntlet|bracer/.test(lc)) return 'gloves';
+  if (/belt|sash|girdle/.test(lc)) return 'belt';
+  if (/shield|buckler|aegis|targe|pavise|kite|tower|monarch/.test(lc))
+    return 'shield';
+  if (/armor|mail|plate|hauberk|cuirass|wyrmhide|archon|dusk shroud|breast/.test(lc))
+    return 'armor';
+  if (/bow|crossbow|arbalest/.test(lc)) return 'bow';
+  if (/staff|wand|orb|sceptre|scepter/.test(lc)) return 'caster';
+  if (/axe|hatchet|cleaver|tomahawk/.test(lc)) return 'axe';
+  if (/sword|saber|blade|gladius|falchion|scimitar|tulwar|phase|dimensional/.test(lc))
+    return 'sword';
+  if (/mace|hammer|maul|flail|club|morning star|scourge/.test(lc)) return 'mace';
+  if (/spear|lance|pike|glaive|poleaxe|halberd|thresher|cryptic axe/.test(lc))
+    return 'polearm';
+  if (/dagger|knife|dirk|kris|blade talons/.test(lc)) return 'dagger';
+  if (/javelin|harpoon|pilum/.test(lc)) return 'javelin';
+  if (/charm/.test(lc)) return 'charm';
+  if (/jewel/.test(lc)) return 'jewel';
+  if (/rune/.test(lc)) return 'rune';
+  if (/gem|skull/.test(lc)) return 'gem';
+  if (/potion|elixir|scroll|key/.test(lc)) return 'consumable';
+  if (/grimoire/.test(lc)) return 'grimoire';
+  return 'other';
+}
+
+// ---- Main -----------------------------------------------------------------
+
+async function main() {
+  console.log('Fetching d2data sources...');
+  const [
+    uniques,
+    setitems,
+    sets,
+    runewords,
+    items,
+    armor,
+    weapons,
+    misc,
+    allstringsRaw,
+  ] = await Promise.all(SOURCES.map((s) => fetchJson(s)));
+
+  // allstrings-eng.json is either an array or { [key]: { enUS } }.
+  const allstringsArr = Array.isArray(allstringsRaw)
+    ? allstringsRaw
+    : Object.entries(allstringsRaw).map(([Key, v]: [string, any]) => ({
+        Key,
+        enUS: v.enUS ?? v,
+      }));
+  const strings = buildStringLookup(allstringsArr);
+  console.log(`  loaded ${Object.keys(strings).length} string keys`);
+
+  const itemRows = parseObjectLike<any>(items);
+  const armorRows = parseObjectLike<any>(armor);
+  const weaponRows = parseObjectLike<any>(weapons);
+  const baseNames = buildBaseNameLookup(itemRows, armorRows, weaponRows);
+
+  const uniqueEntries = flattenUniques(uniques, strings, baseNames);
+  const setEntries = flattenSetItems(setitems, sets, strings, baseNames);
+  const runewordEntries = flattenRunewords(runewords, strings);
+  const miscEntries = flattenMisc(misc, strings);
+  const baseEntries = flattenBases(armor, weapons, strings);
+
+  const all = [
+    ...uniqueEntries,
+    ...setEntries,
+    ...runewordEntries,
+    ...miscEntries,
+    ...baseEntries,
+  ];
+
+  // Deduplicate by id (last write wins).
+  const byId = new Map<string, ItemEntry>();
+  for (const e of all) byId.set(e.id, e);
+  const out = Array.from(byId.values()).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+
+  if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.writeFileSync(OUT_FILE, JSON.stringify(out));
+  const kb = (fs.statSync(OUT_FILE).size / 1024).toFixed(1);
+  console.log(
+    `\nWrote ${out.length} entries (${kb} KB) to ${path.relative(process.cwd(), OUT_FILE)}`,
+  );
+  console.log(`  uniques:   ${uniqueEntries.length}`);
+  console.log(`  sets:      ${setEntries.length}`);
+  console.log(`  runewords: ${runewordEntries.length}`);
+  console.log(`  misc:      ${miscEntries.length}`);
+  console.log(`  bases:     ${baseEntries.length}`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

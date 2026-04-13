@@ -1,0 +1,527 @@
+import * as FileSystem from 'expo-file-system';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { RealmTag } from '@/components/RealmTag';
+import {
+  BackupPayload,
+  createRealm,
+  deleteRealm,
+  exportAll,
+  importAll,
+  listRealms,
+  updateRealm,
+} from '@/db/queries';
+import { useDatabase } from '@/hooks/useDatabase';
+import { colors, fontSize, radius, spacing } from '@/lib/theme';
+import type { Era, Ladder, Mode, Realm } from '@/lib/types';
+
+export default function SettingsScreen() {
+  const { db, bumpRevision, revision } = useDatabase();
+  const [realms, setRealms] = useState<Realm[]>([]);
+  const [editing, setEditing] = useState<Realm | 'new' | null>(null);
+  const [importText, setImportText] = useState('');
+  const [importVisible, setImportVisible] = useState(false);
+
+  const reload = useCallback(() => {
+    listRealms(db).then(setRealms);
+  }, [db]);
+
+  useEffect(() => {
+    reload();
+  }, [reload, revision]);
+
+  const handleExport = async () => {
+    const payload = await exportAll(db);
+    const json = JSON.stringify(payload, null, 2);
+    try {
+      await Share.share({
+        title: 'D2 Mule Tracker Backup',
+        message: json,
+      });
+    } catch {
+      // Ignore cancel / unsupported.
+    }
+  };
+
+  const handleWriteBackupFile = async () => {
+    const payload = await exportAll(db);
+    const json = JSON.stringify(payload, null, 2);
+    const dir = FileSystem.documentDirectory ?? '';
+    const path = `${dir}d2muletracker-backup-${Date.now()}.json`;
+    await FileSystem.writeAsStringAsync(path, json);
+    Alert.alert('Backup saved', path);
+  };
+
+  const handleImport = async (mode: 'merge' | 'replace') => {
+    try {
+      const payload: BackupPayload = JSON.parse(importText);
+      if (!payload || !Array.isArray(payload.realms)) {
+        throw new Error('Missing realms array.');
+      }
+      await importAll(db, payload, mode);
+      setImportText('');
+      setImportVisible(false);
+      bumpRevision();
+      Alert.alert('Import complete');
+    } catch (e: any) {
+      Alert.alert('Import failed', e.message ?? 'Invalid JSON');
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}>
+        <Text style={styles.sectionTitle}>Realms</Text>
+        {realms.length === 0 ? (
+          <Text style={styles.hint}>No realms yet.</Text>
+        ) : (
+          realms.map((r) => (
+            <Pressable
+              key={r.id}
+              style={styles.realmRow}
+              onPress={() => setEditing(r)}
+            >
+              <RealmTag realm={r} />
+              <Text style={styles.chev}>›</Text>
+            </Pressable>
+          ))
+        )}
+        <Pressable style={styles.ghostBtn} onPress={() => setEditing('new')}>
+          <Text style={styles.ghostBtnText}>+ Add Realm</Text>
+        </Pressable>
+
+        <Text style={styles.sectionTitle}>Data</Text>
+        <Pressable style={styles.rowBtn} onPress={handleExport}>
+          <Text style={styles.rowBtnText}>Export (Share JSON)</Text>
+        </Pressable>
+        <Pressable style={styles.rowBtn} onPress={handleWriteBackupFile}>
+          <Text style={styles.rowBtnText}>Save Backup File</Text>
+        </Pressable>
+        <Pressable style={styles.rowBtn} onPress={() => setImportVisible(true)}>
+          <Text style={styles.rowBtnText}>Import JSON…</Text>
+        </Pressable>
+
+        <Text style={styles.sectionTitle}>About</Text>
+        <Text style={styles.about}>
+          D2 Mule Tracker — offline item catalog for Diablo 2 Resurrected.{'\n'}
+          Item database from blizzhackers/d2data.
+        </Text>
+      </ScrollView>
+
+      <RealmEditor
+        target={editing}
+        onClose={() => setEditing(null)}
+        onSave={async (payload) => {
+          if (editing === 'new') {
+            await createRealm(db, payload);
+          } else if (editing) {
+            await updateRealm(db, editing.id, payload);
+          }
+          setEditing(null);
+          bumpRevision();
+        }}
+        onDelete={async () => {
+          if (editing && editing !== 'new') {
+            Alert.alert(
+              'Delete realm?',
+              `"${editing.name}" and all its containers/items will be permanently removed.`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await deleteRealm(db, editing.id);
+                    setEditing(null);
+                    bumpRevision();
+                  },
+                },
+              ],
+            );
+          }
+        }}
+      />
+
+      <Modal
+        visible={importVisible}
+        animationType="slide"
+        onRequestClose={() => setImportVisible(false)}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={{ padding: spacing.lg, flex: 1 }}>
+            <Text style={styles.sectionTitle}>Import Backup</Text>
+            <Text style={styles.hint}>
+              Paste the JSON payload of a backup. Merge keeps existing data;
+              Replace wipes the database first.
+            </Text>
+            <TextInput
+              style={[styles.input, { flex: 1, textAlignVertical: 'top' }]}
+              multiline
+              value={importText}
+              onChangeText={setImportText}
+              placeholder="{ ...backup json... }"
+              placeholderTextColor={colors.textDim}
+            />
+          </View>
+          <View style={styles.footer}>
+            <Pressable
+              style={styles.ghostBtn}
+              onPress={() => setImportVisible(false)}
+            >
+              <Text style={styles.ghostBtnText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={styles.rowBtn}
+              onPress={() => handleImport('merge')}
+            >
+              <Text style={styles.rowBtnText}>Merge</Text>
+            </Pressable>
+            <Pressable
+              style={styles.dangerBtn}
+              onPress={() =>
+                Alert.alert(
+                  'Replace all data?',
+                  'This wipes everything before import.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Replace',
+                      style: 'destructive',
+                      onPress: () => handleImport('replace'),
+                    },
+                  ],
+                )
+              }
+            >
+              <Text style={styles.dangerBtnText}>Replace</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+// ---- Realm editor ---------------------------------------------------------
+
+interface RealmEditorProps {
+  target: Realm | 'new' | null;
+  onClose: () => void;
+  onSave: (input: Omit<Realm, 'id' | 'createdAt'>) => void;
+  onDelete: () => void;
+}
+
+function RealmEditor({ target, onClose, onSave, onDelete }: RealmEditorProps) {
+  const [name, setName] = useState('');
+  const [era, setEra] = useState<Era>('rotw');
+  const [mode, setMode] = useState<Mode>('softcore');
+  const [ladder, setLadder] = useState<Ladder>('ladder');
+
+  useEffect(() => {
+    if (target && target !== 'new') {
+      setName(target.name);
+      setEra(target.era);
+      setMode(target.mode);
+      setLadder(target.ladder);
+    } else if (target === 'new') {
+      setName('');
+      setEra('rotw');
+      setMode('softcore');
+      setLadder('ladder');
+    }
+  }, [target]);
+
+  const visible = target !== null;
+  const isNew = target === 'new';
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.backdrop}>
+        <View style={styles.sheet}>
+          <Text style={styles.sheetTitle}>
+            {isNew ? 'New Realm' : 'Edit Realm'}
+          </Text>
+
+          <Text style={styles.label}>Name</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. RoTW S13 SC Ladder"
+            placeholderTextColor={colors.textDim}
+          />
+
+          <Text style={styles.label}>Era</Text>
+          <Row
+            value={era}
+            onChange={setEra}
+            options={[
+              { value: 'classic', label: 'Classic' },
+              { value: 'lod', label: 'LoD' },
+              { value: 'rotw', label: 'RoTW' },
+            ]}
+          />
+
+          <Text style={styles.label}>Mode</Text>
+          <Row
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'softcore', label: 'Softcore' },
+              { value: 'hardcore', label: 'Hardcore' },
+            ]}
+          />
+
+          <Text style={styles.label}>Ladder</Text>
+          <Row
+            value={ladder}
+            onChange={setLadder}
+            options={[
+              { value: 'ladder', label: 'Ladder' },
+              { value: 'nonladder', label: 'Non-ladder' },
+            ]}
+          />
+
+          <View style={styles.sheetFooter}>
+            {!isNew ? (
+              <Pressable style={styles.dangerBtn} onPress={onDelete}>
+                <Text style={styles.dangerBtnText}>Delete</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.ghostBtn} onPress={onClose}>
+              <Text style={styles.ghostBtnText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.primaryBtn, !name.trim() && styles.disabled]}
+              onPress={() => {
+                if (!name.trim()) return;
+                onSave({
+                  name: name.trim(),
+                  era,
+                  mode,
+                  ladder,
+                  region: null,
+                });
+              }}
+              disabled={!name.trim()}
+            >
+              <Text style={styles.primaryBtnText}>Save</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function Row<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: Array<{ value: T; label: string }>;
+}) {
+  return (
+    <View style={styles.segmentWrap}>
+      {options.map((o) => (
+        <Pressable
+          key={o.value}
+          style={[styles.segment, value === o.value && styles.segmentActive]}
+          onPress={() => onChange(o.value)}
+        >
+          <Text
+            style={[
+              styles.segmentText,
+              value === o.value && styles.segmentTextActive,
+            ]}
+          >
+            {o.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  sectionTitle: {
+    color: colors.primary,
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  hint: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    marginBottom: spacing.md,
+    lineHeight: 20,
+  },
+  about: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+  },
+
+  realmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    marginVertical: 3,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+  },
+  chev: {
+    color: colors.textDim,
+    fontSize: fontSize.xl,
+  },
+  rowBtn: {
+    padding: spacing.md,
+    marginVertical: 3,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  rowBtnText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: fontSize.md,
+  },
+
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  sheet: {
+    backgroundColor: colors.bg,
+    padding: spacing.lg,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    gap: spacing.xs,
+  },
+  sheetTitle: {
+    color: colors.primary,
+    fontSize: fontSize.xl,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
+  },
+  sheetFooter: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+
+  label: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    marginTop: spacing.md,
+    marginBottom: 2,
+  },
+  input: {
+    backgroundColor: colors.card,
+    color: colors.text,
+    fontSize: fontSize.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  primaryBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  primaryBtnText: {
+    color: colors.bg,
+    fontWeight: '700',
+    fontSize: fontSize.md,
+  },
+  ghostBtn: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  ghostBtnText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: fontSize.md,
+  },
+  dangerBtn: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    alignItems: 'center',
+  },
+  dangerBtnText: {
+    color: colors.danger,
+    fontWeight: '600',
+    fontSize: fontSize.md,
+  },
+  disabled: { opacity: 0.4 },
+
+  segmentWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  segment: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segmentActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  segmentText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+  },
+  segmentTextActive: {
+    color: colors.bg,
+    fontWeight: '700',
+  },
+
+  footer: {
+    flexDirection: 'row',
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+});
