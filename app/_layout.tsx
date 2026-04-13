@@ -1,3 +1,5 @@
+import 'expo-sqlite/web-polyfill';
+
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';

@@ -19,12 +19,29 @@ import {
   getContainer,
   listContainers,
   listItemsByContainer,
+  updateContainer,
   updateItem,
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { getItemById } from '@/lib/itemIndex';
 import { colors, fontSize, radius, spacing } from '@/lib/theme';
-import type { Container, ItemRecord } from '@/lib/types';
+import type {
+  CharacterClass,
+  Container,
+  ContainerType,
+  ItemRecord,
+} from '@/lib/types';
+
+const CLASSES: CharacterClass[] = [
+  'amazon',
+  'sorceress',
+  'necromancer',
+  'paladin',
+  'barbarian',
+  'druid',
+  'assassin',
+  'warlock',
+];
 
 export default function ContainerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,6 +52,7 @@ export default function ContainerDetailScreen() {
   const [items, setItems] = useState<ItemRecord[]>([]);
   const [editTarget, setEditTarget] = useState<ItemRecord | null>(null);
   const [moveTarget, setMoveTarget] = useState<ItemRecord | null>(null);
+  const [editContainer, setEditContainer] = useState(false);
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -78,6 +96,12 @@ export default function ContainerDetailScreen() {
             · {items.length} items
           </Text>
         </View>
+        <Pressable
+          style={styles.editBtn}
+          onPress={() => setEditContainer(true)}
+        >
+          <Text style={styles.editBtnText}>Edit</Text>
+        </Pressable>
       </View>
 
       {itemsWithEntries.length === 0 ? (
@@ -159,7 +183,162 @@ export default function ContainerDetailScreen() {
           reload();
         }}
       />
+
+      <EditContainerModal
+        visible={editContainer}
+        container={container}
+        onClose={() => setEditContainer(false)}
+        onSave={async (patch) => {
+          await updateContainer(db, container.id, patch);
+          setEditContainer(false);
+          bumpRevision();
+          reload();
+        }}
+      />
     </SafeAreaView>
+  );
+}
+
+// ---- Edit container modal -------------------------------------------------
+
+interface EditContainerModalProps {
+  visible: boolean;
+  container: Container;
+  onClose: () => void;
+  onSave: (patch: {
+    name: string;
+    type: ContainerType;
+    class: CharacterClass | null;
+    level: number | null;
+  }) => void;
+}
+
+function EditContainerModal({
+  visible,
+  container,
+  onClose,
+  onSave,
+}: EditContainerModalProps) {
+  const [name, setName] = useState(container.name);
+  const [type, setType] = useState<ContainerType>(container.type);
+  const [charClass, setCharClass] = useState<CharacterClass>(
+    container.class ?? 'sorceress',
+  );
+  const [level, setLevel] = useState(
+    container.level != null ? String(container.level) : '',
+  );
+
+  useEffect(() => {
+    if (visible) {
+      setName(container.name);
+      setType(container.type);
+      setCharClass(container.class ?? 'sorceress');
+      setLevel(container.level != null ? String(container.level) : '');
+    }
+  }, [visible, container]);
+
+  const submit = () => {
+    if (!name.trim()) return;
+    onSave({
+      name: name.trim(),
+      type,
+      class: type === 'shared_stash' ? null : charClass,
+      level: level ? Math.max(1, parseInt(level, 10) || 1) : null,
+    });
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalSheet}>
+          <Text style={styles.sheetTitle}>Edit Container</Text>
+
+          <Text style={styles.label}>Type</Text>
+          <View style={styles.segmentRow}>
+            {(['character', 'shared_stash'] as ContainerType[]).map((t) => (
+              <Pressable
+                key={t}
+                style={[styles.segment, type === t && styles.segmentActive]}
+                onPress={() => setType(t)}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    type === t && styles.segmentTextActive,
+                  ]}
+                >
+                  {t === 'character' ? 'Character' : 'Shared Stash'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Name</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="none"
+            placeholderTextColor={colors.textDim}
+          />
+
+          {type === 'character' ? (
+            <>
+              <Text style={styles.label}>Class</Text>
+              <View style={styles.segmentRow}>
+                {CLASSES.map((c) => (
+                  <Pressable
+                    key={c}
+                    style={[
+                      styles.segment,
+                      charClass === c && styles.segmentActive,
+                    ]}
+                    onPress={() => setCharClass(c)}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        charClass === c && styles.segmentTextActive,
+                      ]}
+                    >
+                      {c}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Level (optional)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="number-pad"
+                value={level}
+                onChangeText={setLevel}
+                placeholder="e.g. 1"
+                placeholderTextColor={colors.textDim}
+              />
+            </>
+          ) : null}
+
+          <View style={styles.sheetRow}>
+            <Pressable style={styles.ghostBtn} onPress={onClose}>
+              <Text style={styles.ghostBtnText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.primaryBtn, !name.trim() && styles.disabled]}
+              onPress={submit}
+              disabled={!name.trim()}
+            >
+              <Text style={styles.primaryBtnText}>Save</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -479,4 +658,44 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     marginTop: 2,
   },
+  editBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  editBtnText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: fontSize.sm,
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: 4,
+  },
+  segment: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segmentActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  segmentText: {
+    color: colors.textMuted,
+    textTransform: 'capitalize',
+    fontSize: fontSize.sm,
+  },
+  segmentTextActive: {
+    color: colors.bg,
+    fontWeight: '700',
+  },
+  disabled: { opacity: 0.4 },
 });

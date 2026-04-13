@@ -31,7 +31,15 @@ import type {
   Ladder,
   Mode,
   Realm,
+  Region,
 } from '@/lib/types';
+
+const REGION_OPTIONS: Array<{ value: Region; label: string }> = [
+  { value: null, label: 'None' },
+  { value: 'americas', label: 'Americas' },
+  { value: 'europe', label: 'Europe' },
+  { value: 'asia', label: 'Asia' },
+];
 
 const CLASSES: CharacterClass[] = [
   'amazon',
@@ -186,6 +194,7 @@ function AddRealmModal({ visible, onClose, onCreate }: AddRealmModalProps) {
   const [era, setEra] = useState<Era>('rotw');
   const [mode, setMode] = useState<Mode>('softcore');
   const [ladder, setLadder] = useState<Ladder>('ladder');
+  const [region, setRegion] = useState<Region>(null);
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -194,9 +203,10 @@ function AddRealmModal({ visible, onClose, onCreate }: AddRealmModalProps) {
       era,
       mode,
       ladder,
-      region: null,
+      region,
     });
     setName('');
+    setRegion(null);
   };
 
   return (
@@ -244,6 +254,29 @@ function AddRealmModal({ visible, onClose, onCreate }: AddRealmModalProps) {
               { value: 'nonladder', label: 'Non-ladder' },
             ]}
           />
+
+          <Text style={styles.label}>Region</Text>
+          <View style={styles.segmentWrap}>
+            {REGION_OPTIONS.map((o) => (
+              <Pressable
+                key={o.label}
+                style={[
+                  styles.segment,
+                  region === o.value && styles.segmentActive,
+                ]}
+                onPress={() => setRegion(o.value)}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    region === o.value && styles.segmentTextActive,
+                  ]}
+                >
+                  {o.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </ScrollView>
         <View style={styles.modalFooter}>
           <Pressable style={styles.ghostBtn} onPress={onClose}>

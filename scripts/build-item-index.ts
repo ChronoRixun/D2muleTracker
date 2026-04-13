@@ -57,15 +57,52 @@ const ROTW_NAME_KEYWORDS = [
   'grimoire',
   'renewed',
   'latent',
-  'sunder',
   'colossal ancient',
-  "opalvein's",
-  "sling's",
-  "hellwarden's",
+  'opalvein',
+  'sling',
+  'hellwarden',
   'dreadfang',
   'wraithstep',
   'warlock',
+  'bloodpact',
+  'entropy locket',
+  "gheed's wager",
+  'measured wrath',
+  "ars al'",
+  "ars tor'",
+  "ars dul'",
+  "defender's bile",
+  "defender's fire",
+  "guardian's thunder",
+  "guardian's light",
+  "protector's frost",
+  "protector's stone",
+  "warlord's glory",
+  "warlord's authority",
+  "warlord's conquest",
+  "warlord's crushers",
+  "warlord's lust",
+  "warlord's mantle",
 ];
+
+const ROTW_RUNEWORD_NAMES = new Set([
+  'coven',
+  'defile',
+  'dominion',
+  'entropy',
+  'hex',
+  'malice',
+  'omen',
+  'penance',
+  'pestilence',
+  'reckoning',
+  'ritual',
+  'scourge',
+  'torment',
+  'vendetta',
+  'woe',
+  'wonder',
+]);
 
 function detectEra(raw: {
   version?: number | string;
@@ -143,6 +180,36 @@ const NICKNAMES: Record<string, string[]> = {
   'Stormshield': ['ss', 'stormshield'],
   'Griffon\u2019s Eye': ['griffons', 'griffs'],
   "Griffon's Eye": ['griffons', 'griffs'],
+  'Sling': ['sling ring'],
+  'Annihilus': ['anni'],
+  'Hellfire Torch': ['torch'],
+  "Gheed's Fortune": ['gheeds'],
+  'Gheed\u2019s Fortune': ['gheeds'],
+  "Tal Rasha's Guardianship": ['tal armor', 'tals armor'],
+  "Tal Rasha's Horadric Crest": ['tal helm', 'tals helm'],
+  "Tal Rasha's Lidless Eye": ['tal weapon', 'tals weapon', 'tal swirl'],
+  "Tal Rasha's Adjudication": ['tal ammy', 'tals ammy', 'tal amulet'],
+  "Tal Rasha's Fine-Spun Cloth": ['tal belt', 'tals belt'],
+  'Chance Guards': ['chancies'],
+  'Magefist': ['magefist'],
+  "Skullder's Ire": ['skulders', 'skullder'],
+  'Skullder\u2019s Ire': ['skulders', 'skullder'],
+  "Dracul's Grasp": ['dracs'],
+  'Dracul\u2019s Grasp': ['dracs'],
+  "Verdungo's Hearty Cord": ['verdungos'],
+  'Verdungo\u2019s Hearty Cord': ['verdungos'],
+  "Guillaume's Face": ['gface', 'guillames'],
+  'Guillaume\u2019s Face': ['gface', 'guillames'],
+  "Nightwing's Veil": ['nightwings'],
+  'Nightwing\u2019s Veil': ['nightwings'],
+  "Death's Fathom": ['fathom'],
+  'Death\u2019s Fathom': ['fathom'],
+  "Ormus' Robes": ['ormus'],
+  'Ormus\u2019 Robes': ['ormus'],
+  "Eschuta's Temper": ['eschutas'],
+  'Eschuta\u2019s Temper': ['eschutas'],
+  'Treachery': ['treachery'],
+  'Flickering Flame': ['flicker'],
 };
 
 // ---- Parsers --------------------------------------------------------------
@@ -281,9 +348,10 @@ function flattenRunewords(src: any, strings: Strings): ItemEntry[] {
       const t = r[`itype${n}`];
       if (t) types.push(String(t));
     }
-    const patch = Number(r['*Patch Release'] ?? 0);
+    const nameLc = name.toLowerCase();
     const era: Era =
-      patch >= 300 || ROTW_NAME_KEYWORDS.some((k) => name.toLowerCase().includes(k))
+      ROTW_RUNEWORD_NAMES.has(nameLc) ||
+      ROTW_NAME_KEYWORDS.some((k) => nameLc.includes(k))
         ? 'rotw'
         : 'lod';
     out.push({

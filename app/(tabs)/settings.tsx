@@ -1,3 +1,4 @@
+import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -25,7 +26,14 @@ import {
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { colors, fontSize, radius, spacing } from '@/lib/theme';
-import type { Era, Ladder, Mode, Realm } from '@/lib/types';
+import type { Era, Ladder, Mode, Realm, Region } from '@/lib/types';
+
+const REGION_OPTIONS: Array<{ value: Region; label: string }> = [
+  { value: null, label: 'None' },
+  { value: 'americas', label: 'Americas' },
+  { value: 'europe', label: 'Europe' },
+  { value: 'asia', label: 'Asia' },
+];
 
 export default function SettingsScreen() {
   const { db, bumpRevision, revision } = useDatabase();
@@ -77,6 +85,21 @@ export default function SettingsScreen() {
       Alert.alert('Import complete');
     } catch (e: any) {
       Alert.alert('Import failed', e.message ?? 'Invalid JSON');
+    }
+  };
+
+  const handlePickFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const contents = await FileSystem.readAsStringAsync(asset.uri);
+      setImportText(contents);
+    } catch (e: any) {
+      Alert.alert('Could not read file', e.message ?? 'Unknown error');
     }
   };
 
@@ -163,11 +186,14 @@ export default function SettingsScreen() {
           <View style={{ padding: spacing.lg, flex: 1 }}>
             <Text style={styles.sectionTitle}>Import Backup</Text>
             <Text style={styles.hint}>
-              Paste the JSON payload of a backup. Merge keeps existing data;
-              Replace wipes the database first.
+              Pick a backup .json file or paste the payload below. Merge keeps
+              existing data; Replace wipes the database first.
             </Text>
+            <Pressable style={styles.rowBtn} onPress={handlePickFile}>
+              <Text style={styles.rowBtnText}>Pick File…</Text>
+            </Pressable>
             <TextInput
-              style={[styles.input, { flex: 1, textAlignVertical: 'top' }]}
+              style={[styles.input, { flex: 1, textAlignVertical: 'top', marginTop: spacing.sm }]}
               multiline
               value={importText}
               onChangeText={setImportText}
@@ -228,6 +254,7 @@ function RealmEditor({ target, onClose, onSave, onDelete }: RealmEditorProps) {
   const [era, setEra] = useState<Era>('rotw');
   const [mode, setMode] = useState<Mode>('softcore');
   const [ladder, setLadder] = useState<Ladder>('ladder');
+  const [region, setRegion] = useState<Region>(null);
 
   useEffect(() => {
     if (target && target !== 'new') {
@@ -235,11 +262,13 @@ function RealmEditor({ target, onClose, onSave, onDelete }: RealmEditorProps) {
       setEra(target.era);
       setMode(target.mode);
       setLadder(target.ladder);
+      setRegion(target.region ?? null);
     } else if (target === 'new') {
       setName('');
       setEra('rotw');
       setMode('softcore');
       setLadder('ladder');
+      setRegion(null);
     }
   }, [target]);
 
@@ -299,6 +328,29 @@ function RealmEditor({ target, onClose, onSave, onDelete }: RealmEditorProps) {
             ]}
           />
 
+          <Text style={styles.label}>Region</Text>
+          <View style={styles.segmentWrap}>
+            {REGION_OPTIONS.map((o) => (
+              <Pressable
+                key={o.label}
+                style={[
+                  styles.segment,
+                  region === o.value && styles.segmentActive,
+                ]}
+                onPress={() => setRegion(o.value)}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    region === o.value && styles.segmentTextActive,
+                  ]}
+                >
+                  {o.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
           <View style={styles.sheetFooter}>
             {!isNew ? (
               <Pressable style={styles.dangerBtn} onPress={onDelete}>
@@ -317,7 +369,7 @@ function RealmEditor({ target, onClose, onSave, onDelete }: RealmEditorProps) {
                   era,
                   mode,
                   ladder,
-                  region: null,
+                  region,
                 });
               }}
               disabled={!name.trim()}
