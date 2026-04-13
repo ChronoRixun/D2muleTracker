@@ -29,6 +29,7 @@ import type {
   CharacterClass,
   Container,
   ContainerType,
+  ItemLocation,
   ItemRecord,
 } from '@/lib/types';
 
@@ -42,6 +43,8 @@ const CLASSES: CharacterClass[] = [
   'assassin',
   'warlock',
 ];
+
+const LOCATIONS: ItemLocation[] = ['inventory', 'equipped', 'merc', 'stash'];
 
 export default function ContainerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -365,12 +368,14 @@ function EditItemModal({
 }: EditItemModalProps) {
   const [notes, setNotes] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const [location, setLocation] = useState<ItemLocation>(null);
   const entry = target ? getItemById(target.itemIndexId) : null;
 
   useEffect(() => {
     if (target) {
       setNotes(target.notes ?? '');
       setQuantity(String(target.quantity ?? 1));
+      setLocation(target.location);
     }
   }, [target]);
 
@@ -408,6 +413,42 @@ function EditItemModal({
             onChangeText={setQuantity}
           />
 
+          <Text style={styles.label}>Location</Text>
+          <View style={styles.segmentRow}>
+            <Pressable
+              style={[styles.segment, !location && styles.segmentActive]}
+              onPress={() => setLocation(null)}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  !location && styles.segmentTextActive,
+                ]}
+              >
+                unspecified
+              </Text>
+            </Pressable>
+            {LOCATIONS.map((loc) => (
+              <Pressable
+                key={loc}
+                style={[
+                  styles.segment,
+                  location === loc && styles.segmentActive,
+                ]}
+                onPress={() => setLocation(loc)}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    location === loc && styles.segmentTextActive,
+                  ]}
+                >
+                  {loc}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
           <View style={styles.sheetRow}>
             <Pressable
               style={styles.ghostBtn}
@@ -430,6 +471,7 @@ function EditItemModal({
                 onSave({
                   notes: notes.trim() || null,
                   quantity: Math.max(1, parseInt(quantity, 10) || 1),
+                  location,
                 })
               }
             >
