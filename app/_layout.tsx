@@ -1,13 +1,11 @@
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
 import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { DatabaseProvider } from '@/hooks/useDatabase';
 import { colors } from '@/lib/theme';
-
-// Lazy-load to avoid importing expo-sqlite on web
-const NativeApp = React.lazy(() => import('../components/NativeApp'));
 
 function Loading() {
   return (
@@ -63,9 +61,26 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <React.Suspense fallback={<Loading />}>
-          <NativeApp />
-        </React.Suspense>
+        <DatabaseProvider loadingFallback={<Loading />}>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.bg },
+              headerTintColor: colors.text,
+              contentStyle: { backgroundColor: colors.bg },
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="container/[id]"
+              options={{ title: 'Container' }}
+            />
+            <Stack.Screen
+              name="modal/add-item"
+              options={{ presentation: 'modal', title: 'Add Item' }}
+            />
+          </Stack>
+        </DatabaseProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
