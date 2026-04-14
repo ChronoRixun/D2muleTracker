@@ -1,5 +1,7 @@
+import Constants from 'expo-constants';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
+import * as StoreReview from 'expo-store-review';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -138,10 +140,29 @@ export default function SettingsScreen() {
 
         <Text style={styles.sectionTitle}>About</Text>
         <Text style={styles.about}>
-          D2 Mule Tracker — offline item catalog for Diablo 2 Resurrected.{'\n'}
-          Item database from blizzhackers/d2data.{'\n'}
-          Item type icons from game-icons.net (CC BY 3.0).
+          D2 Mule Tracker v{Constants.expoConfig?.version ?? '1.0.0'}{'\n'}
+          Offline inventory catalog for Diablo 2 Resurrected.{'\n\n'}
+          Item database sourced from blizzhackers/d2data (MIT license).{'\n'}
+          github.com/blizzhackers/d2data{'\n\n'}
+          Item type icons by Lorc, Delapouite, and contributors{'\n'}
+          from game-icons.net, licensed under CC BY 3.0.{'\n'}
+          Icons have been recolored to match the app theme.{'\n\n'}
+          Built with Expo + React Native.
         </Text>
+        <Pressable
+          style={[styles.rowBtn, { marginTop: spacing.md }]}
+          onPress={async () => {
+            try {
+              if (await StoreReview.hasAction()) {
+                await StoreReview.requestReview();
+              }
+            } catch {
+              // Ignore: review prompt unavailable on this platform.
+            }
+          }}
+        >
+          <Text style={styles.rowBtnText}>Rate This App</Text>
+        </Pressable>
       </ScrollView>
 
       <RealmEditor
