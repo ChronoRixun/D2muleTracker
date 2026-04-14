@@ -238,30 +238,30 @@ export default function ContainerDetailScreen() {
       <Stack.Screen options={{ title: container.name }} />
 
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{container.name}</Text>
-          <Text style={styles.sub}>
-            {container.type === 'shared_stash'
-              ? 'Shared Stash'
-              : `${container.class ?? 'Unknown'} · Lv ${container.level ?? '?'}`}{' '}
-            · {items.length} items
-          </Text>
-          {Object.keys(categoryCounts).length > 0 ? (
-            <View style={styles.countsRow}>
-              {(Object.keys(categoryCounts) as ItemCategory[]).map((cat, idx) => (
-                <Text
-                  key={cat}
-                  style={[styles.countItem, { color: categoryColor(cat) }]}
-                >
-                  {idx > 0 ? ' · ' : ''}
-                  {categoryCounts[cat]}{' '}
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                </Text>
-              ))}
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.headerBtns}>
+        <Text style={styles.title} numberOfLines={1}>
+          {container.name}
+        </Text>
+        <Text style={styles.sub}>
+          {container.type === 'shared_stash'
+            ? 'Shared Stash'
+            : `${container.class ?? 'Unknown'} · Lv ${container.level ?? '?'}`}{' '}
+          · {items.length} items
+        </Text>
+        {Object.keys(categoryCounts).length > 0 ? (
+          <View style={styles.countsRow}>
+            {(Object.keys(categoryCounts) as ItemCategory[]).map((cat, idx) => (
+              <Text
+                key={cat}
+                style={[styles.countItem, { color: categoryColor(cat) }]}
+              >
+                {idx > 0 ? ' · ' : ''}
+                {categoryCounts[cat]}{' '}
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.headerActions}>
           {items.length > 0 ? (
             <Pressable
               style={[styles.editBtn, selectMode && styles.editBtnActive]}
@@ -315,6 +315,7 @@ export default function ContainerDetailScreen() {
       ) : null}
 
       {items.length > 0 ? (
+        <View style={{ flexShrink: 0 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -387,6 +388,7 @@ export default function ContainerDetailScreen() {
             </>
           ) : null}
         </ScrollView>
+        </View>
       ) : null}
 
       {itemsWithEntries.length === 0 ? (
@@ -449,6 +451,7 @@ export default function ContainerDetailScreen() {
                     entry={row.entry}
                     notes={row.item.notes}
                     quantity={row.item.quantity}
+                    sockets={row.item.sockets}
                   />
                 </View>
               </Pressable>
@@ -634,6 +637,7 @@ function SwipeableItemRow({
         entry={entry}
         notes={item.notes}
         quantity={item.quantity}
+        sockets={item.sockets}
         onPress={onPress}
       />
     </ReanimatedSwipeable>
@@ -792,6 +796,7 @@ interface EditItemModalProps {
     notes?: string | null;
     quantity?: number;
     location?: ItemRecord['location'];
+    sockets?: number | null;
   }) => void;
   onDelete: () => void;
   onMove: (target: ItemRecord) => void;
@@ -807,6 +812,7 @@ function EditItemModal({
   const [notes, setNotes] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [location, setLocation] = useState<ItemLocation>(null);
+  const [sockets, setSockets] = useState<number | null>(null);
   const entry = target ? getItemById(target.itemIndexId) : null;
 
   useEffect(() => {
@@ -814,6 +820,7 @@ function EditItemModal({
       setNotes(target.notes ?? '');
       setQuantity(String(target.quantity ?? 1));
       setLocation(target.location);
+      setSockets(target.sockets ?? null);
     }
   }, [target]);
 
@@ -831,6 +838,35 @@ function EditItemModal({
           ) : null}
           {entry?.baseName && entry.baseName !== entry.name ? (
             <Text style={styles.sheetSub}>{entry.baseName}</Text>
+          ) : null}
+
+          {entry?.category === 'base' &&
+          entry?.maxSockets &&
+          entry.maxSockets > 0 ? (
+            <View>
+              <Text style={styles.label}>Sockets</Text>
+              <View style={styles.socketRow}>
+                {Array.from({ length: (entry.maxSockets ?? 0) + 1 }, (_, i) => (
+                  <Pressable
+                    key={i}
+                    style={[
+                      styles.socketBtn,
+                      sockets === i && styles.socketBtnActive,
+                    ]}
+                    onPress={() => setSockets(i)}
+                  >
+                    <Text
+                      style={[
+                        styles.socketBtnText,
+                        sockets === i && styles.socketBtnTextActive,
+                      ]}
+                    >
+                      {i === 0 ? '0os' : `${i}os`}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           ) : null}
 
           {entry?.variableStats && entry.variableStats.length > 0 ? (
@@ -931,6 +967,12 @@ function EditItemModal({
                   notes: notes.trim() || null,
                   quantity: Math.max(1, parseInt(quantity, 10) || 1),
                   location,
+                  sockets:
+                    entry?.category === 'base' &&
+                    entry?.maxSockets &&
+                    entry.maxSockets > 0
+                      ? sockets
+                      : null,
                 })
               }
             >
@@ -1088,11 +1130,14 @@ function BulkMoveModal({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     padding: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   title: {
     color: colors.text,
@@ -1250,10 +1295,6 @@ const styles = StyleSheet.create({
   },
   editBtnTextActive: {
     color: colors.bg,
-  },
-  headerBtns: {
-    flexDirection: 'row',
-    gap: spacing.xs,
   },
   cancelBtn: {
     padding: spacing.md,
@@ -1447,6 +1488,35 @@ const styles = StyleSheet.create({
     height: 16,
     backgroundColor: colors.border,
     marginHorizontal: spacing.xs,
+  },
+
+  socketRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  socketBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  socketBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  socketBtnText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  socketBtnTextActive: {
+    color: colors.bg,
+    fontWeight: '700',
   },
 
   swipeDeleteBtn: {

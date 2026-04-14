@@ -16,6 +16,10 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     await db.execAsync(SCHEMA_SQL);
   }
 
+  if (current > 0 && current < 2) {
+    await db.execAsync('ALTER TABLE items ADD COLUMN sockets INTEGER;');
+  }
+
   // Future migrations: add `if (current < N)` blocks here.
 
   if (current !== CURRENT_SCHEMA_VERSION) {

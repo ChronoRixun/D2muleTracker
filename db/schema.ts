@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS items (
   notes           TEXT,
   quantity        INTEGER NOT NULL DEFAULT 1,
   location        TEXT,
+  sockets         INTEGER,
   created_at      TEXT NOT NULL,
   updated_at      TEXT NOT NULL
 );
@@ -43,4 +44,4 @@ CREATE INDEX IF NOT EXISTS idx_containers_realm  ON containers(realm_id);
 `;
 
 export const DB_NAME = 'd2muletracker.db';
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;

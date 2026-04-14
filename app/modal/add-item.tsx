@@ -31,12 +31,14 @@ export default function AddItemModal() {
   const [notes, setNotes] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [location, setLocation] = useState<ItemLocation>(null);
+  const [sockets, setSockets] = useState<number | null>(null);
 
   const resetForm = () => {
     setSelected(null);
     setNotes('');
     setQuantity('1');
     setLocation(null);
+    setSockets(null);
   };
 
   const persist = async () => {
@@ -47,6 +49,7 @@ export default function AddItemModal() {
       notes: notes.trim() || null,
       quantity: Math.max(1, parseInt(quantity, 10) || 1),
       location,
+      sockets: selected.category === 'base' ? sockets : null,
     });
     bumpRevision();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
@@ -117,6 +120,11 @@ export default function AddItemModal() {
               {selected.runes ? ` · ${selected.runes}` : ''}
             </Text>
           ) : null}
+          {selected.maxSockets ? (
+            <Text style={styles.selectedBase}>
+              Max Sockets: {selected.maxSockets}
+            </Text>
+          ) : null}
           <Pressable
             style={styles.changeBtn}
             onPress={() => setSelected(null)}
@@ -124,6 +132,33 @@ export default function AddItemModal() {
             <Text style={styles.changeBtnText}>Change item</Text>
           </Pressable>
         </View>
+
+        {selected.category === 'base' && selected.maxSockets && selected.maxSockets > 0 ? (
+          <View>
+            <Text style={styles.label}>Sockets</Text>
+            <View style={styles.socketRow}>
+              {Array.from({ length: (selected.maxSockets ?? 0) + 1 }, (_, i) => (
+                <Pressable
+                  key={i}
+                  style={[
+                    styles.socketBtn,
+                    sockets === i && styles.socketBtnActive,
+                  ]}
+                  onPress={() => setSockets(i)}
+                >
+                  <Text
+                    style={[
+                      styles.socketBtnText,
+                      sockets === i && styles.socketBtnTextActive,
+                    ]}
+                  >
+                    {i === 0 ? '0os' : `${i}os`}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {selected.variableStats && selected.variableStats.length > 0 ? (
           <View style={styles.statsCard}>
@@ -375,6 +410,35 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
   },
   segmentTextActive: {
+    color: colors.bg,
+    fontWeight: '700',
+  },
+
+  socketRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  socketBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  socketBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  socketBtnText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  socketBtnTextActive: {
     color: colors.bg,
     fontWeight: '700',
   },

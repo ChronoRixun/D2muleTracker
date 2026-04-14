@@ -10,6 +10,7 @@ interface Props {
   entry: ItemEntry;
   notes?: string | null;
   quantity?: number;
+  sockets?: number | null;
   rightHint?: string;
   onPress?: () => void;
   onLongPress?: () => void;
@@ -19,6 +20,7 @@ export function ItemRow({
   entry,
   notes,
   quantity,
+  sockets,
   rightHint,
   onPress,
   onLongPress,
@@ -46,9 +48,12 @@ export function ItemRow({
         {entry.baseName && entry.baseName !== entry.name ? (
           <Text style={styles.base} numberOfLines={1}>
             {entry.baseName}
+            {sockets != null ? ` · ${sockets}os` : ''}
             {entry.reqLevel ? ` · Lv ${entry.reqLevel}` : ''}
             {entry.runes ? ` · ${entry.runes}` : ''}
           </Text>
+        ) : sockets != null ? (
+          <Text style={styles.base}>{sockets}os</Text>
         ) : null}
         {notes ? (
           <Text style={styles.notes} numberOfLines={2}>
