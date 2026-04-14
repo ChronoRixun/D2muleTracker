@@ -13,6 +13,13 @@ export type ItemCategory =
 
 export type Era = 'classic' | 'lod' | 'rotw';
 
+export interface VariableStat {
+  stat: string;
+  min: number;
+  max: number;
+  code: string;
+}
+
 export interface ItemEntry {
   id: string;
   name: string;
@@ -26,6 +33,7 @@ export interface ItemEntry {
   runewordTypes?: string[];
   era: Era;
   searchTerms: string[];
+  variableStats?: VariableStat[];
 }
 
 export type CharacterClass =

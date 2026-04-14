@@ -622,6 +622,27 @@ function EditItemModal({
             <Text style={styles.sheetSub}>{entry.baseName}</Text>
           ) : null}
 
+          {entry?.variableStats && entry.variableStats.length > 0 ? (
+            <View style={styles.statsCard}>
+              <Text style={styles.statsTitle}>Variable Rolls</Text>
+              {entry.variableStats.map((vs, i) => (
+                <View key={i} style={styles.statRow}>
+                  <Text style={styles.statName}>{vs.stat}</Text>
+                  <Text style={styles.statRange}>
+                    {vs.min} – {vs.max}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : entry &&
+            (entry.category === 'unique' || entry.category === 'set') ? (
+            <View style={styles.statsCard}>
+              <Text style={styles.statsFixed}>
+                All stats fixed — nothing to note
+              </Text>
+            </View>
+          ) : null}
+
           <Text style={styles.label}>Notes</Text>
           <TextInput
             style={[styles.input, { minHeight: 70 }]}
@@ -967,6 +988,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   disabled: { opacity: 0.4 },
+
+  statsCard: {
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statsTitle: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  statName: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+  },
+  statRange: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  statsFixed: {
+    color: colors.textDim,
+    fontSize: fontSize.sm,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
 
   countsRow: {
     flexDirection: 'row',
