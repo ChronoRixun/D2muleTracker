@@ -4,6 +4,7 @@ import { categoryColor, colors, fontSize, radius, spacing } from '@/lib/theme';
 import type { ItemEntry } from '@/lib/types';
 
 import { CategoryBadge } from './CategoryBadge';
+import { ItemTypeIcon } from './ItemTypeIcon';
 
 interface Props {
   entry: ItemEntry;
@@ -31,6 +32,9 @@ export function ItemRow({
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
       <View style={[styles.colorBar, { backgroundColor: color }]} />
+      <View style={styles.iconWrap}>
+        <ItemTypeIcon itemType={entry.itemType} size={22} color={color} />
+      </View>
       <View style={styles.body}>
         <View style={styles.headerRow}>
           <Text style={[styles.name, { color }]} numberOfLines={1}>
@@ -73,6 +77,12 @@ const styles = StyleSheet.create({
   },
   colorBar: {
     width: 3,
+  },
+  iconWrap: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.xs,
   },
   body: {
     flex: 1,

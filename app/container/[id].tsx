@@ -8,6 +8,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -142,6 +143,70 @@ export default function ContainerDetailScreen() {
     setRefreshing(false);
   }, [reload]);
 
+  const handleShare = async () => {
+    if (!container) return;
+    const lines: string[] = [];
+    lines.push(`📦 ${container.name}`);
+    lines.push(
+      container.type === 'shared_stash'
+        ? 'Shared Stash'
+        : `${container.class ?? 'Unknown'} · Lv ${container.level ?? '?'}`,
+    );
+    lines.push(`${items.length} items\n`);
+
+    const groups: Record<string, Array<{ name: string; notes: string | null }>> = {};
+    for (const { item, entry } of itemsWithEntries) {
+      if (!entry) continue;
+      const cat = entry.category;
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push({ name: entry.name, notes: item.notes });
+    }
+
+    const categoryOrder: ItemCategory[] = [
+      'unique',
+      'set',
+      'runeword',
+      'base',
+      'rune',
+      'gem',
+      'misc',
+    ];
+    const categoryLabels: Record<ItemCategory, string> = {
+      unique: '⭐ Uniques',
+      set: '🟢 Sets',
+      runeword: '🔷 Runewords',
+      base: '⚪ Bases',
+      rune: '🟠 Runes',
+      gem: '💎 Gems',
+      misc: '📦 Misc',
+    };
+
+    for (const cat of categoryOrder) {
+      const group = groups[cat];
+      if (!group || group.length === 0) continue;
+      lines.push(categoryLabels[cat] ?? cat);
+      for (const g of group) {
+        const note = g.notes ? ` — ${g.notes}` : '';
+        lines.push(`  ${g.name}${note}`);
+      }
+      lines.push('');
+    }
+
+    lines.push('—');
+    lines.push('Exported from D2 Mule Tracker');
+
+    const text = lines.join('\n');
+
+    try {
+      await Share.share({
+        title: `${container.name} — D2 Mule Tracker`,
+        message: text,
+      });
+    } catch {
+      // User cancelled or share unavailable.
+    }
+  };
+
   const handleSwipeDelete = (target: ItemRecord) => {
     Alert.alert('Delete item?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -215,6 +280,9 @@ export default function ContainerDetailScreen() {
               </Text>
             </Pressable>
           ) : null}
+          <Pressable style={styles.editBtn} onPress={handleShare}>
+            <Text style={styles.editBtnText}>Share</Text>
+          </Pressable>
           <Pressable
             style={styles.editBtn}
             onPress={() => setEditContainer(true)}

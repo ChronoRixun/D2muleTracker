@@ -139,7 +139,8 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>About</Text>
         <Text style={styles.about}>
           D2 Mule Tracker — offline item catalog for Diablo 2 Resurrected.{'\n'}
-          Item database from blizzhackers/d2data.
+          Item database from blizzhackers/d2data.{'\n'}
+          Item type icons from game-icons.net (CC BY 3.0).
         </Text>
       </ScrollView>
 

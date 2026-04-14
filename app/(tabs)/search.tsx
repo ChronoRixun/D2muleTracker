@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
+import { ItemTypeIcon } from '@/components/ItemTypeIcon';
 import { RealmTag } from '@/components/RealmTag';
 import { findItemsByIndexIds, listRealms, searchNotes } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
@@ -242,6 +243,13 @@ export default function SearchScreen() {
                   { backgroundColor: categoryColor(hit.entry.category) },
                 ]}
               />
+              <View style={styles.iconWrap}>
+                <ItemTypeIcon
+                  itemType={hit.entry.itemType}
+                  size={22}
+                  color={categoryColor(hit.entry.category)}
+                />
+              </View>
               <View style={styles.hitBody}>
                 <View style={styles.hitHead}>
                   <Text
@@ -373,6 +381,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   colorBar: { width: 3 },
+  iconWrap: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.xs,
+  },
   hitBody: { flex: 1, padding: spacing.md },
   hitHead: {
     flexDirection: 'row',
