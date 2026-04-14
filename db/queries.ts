@@ -54,6 +54,7 @@ type ItemRow = {
   notes: string | null;
   quantity: number;
   location: string | null;
+  sockets: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -93,6 +94,7 @@ function mapItem(r: ItemRow): ItemRecord {
     notes: r.notes,
     quantity: r.quantity,
     location: (r.location ?? null) as ItemLocation,
+    sockets: r.sockets ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -333,6 +335,7 @@ export async function createItem(
     notes?: string | null;
     quantity?: number;
     location?: ItemLocation;
+    sockets?: number | null;
   },
 ): Promise<ItemRecord> {
   const ts = now();
@@ -343,13 +346,14 @@ export async function createItem(
     notes: input.notes ?? null,
     quantity: input.quantity ?? 1,
     location: input.location ?? null,
+    sockets: input.sockets ?? null,
     createdAt: ts,
     updatedAt: ts,
   };
   await db.runAsync(
     `INSERT INTO items
-     (id, container_id, item_index_id, notes, quantity, location, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     (id, container_id, item_index_id, notes, quantity, location, sockets, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       item.id,
       item.containerId,
@@ -357,6 +361,7 @@ export async function createItem(
       item.notes,
       item.quantity,
       item.location,
+      item.sockets,
       item.createdAt,
       item.updatedAt,
     ],
@@ -367,7 +372,7 @@ export async function createItem(
 export async function updateItem(
   db: SQLiteDatabase,
   id: string,
-  patch: Partial<Pick<ItemRecord, 'notes' | 'quantity' | 'location' | 'containerId'>>,
+  patch: Partial<Pick<ItemRecord, 'notes' | 'quantity' | 'location' | 'containerId' | 'sockets'>>,
 ): Promise<void> {
   const fields: string[] = [];
   const values: any[] = [];
@@ -386,6 +391,10 @@ export async function updateItem(
   if (patch.containerId !== undefined) {
     fields.push('container_id = ?');
     values.push(patch.containerId);
+  }
+  if (patch.sockets !== undefined) {
+    fields.push('sockets = ?');
+    values.push(patch.sockets);
   }
   if (fields.length === 0) return;
   fields.push('updated_at = ?');
@@ -457,6 +466,7 @@ export async function findItemsByIndexIds(
       notes: row.notes,
       quantity: row.quantity,
       location: row.location,
+      sockets: row.sockets,
       created_at: row.created_at,
       updated_at: row.updated_at,
     }),
@@ -519,6 +529,7 @@ export async function searchNotes(
       notes: row.notes,
       quantity: row.quantity,
       location: row.location,
+      sockets: row.sockets,
       created_at: row.created_at,
       updated_at: row.updated_at,
     }),
@@ -611,8 +622,8 @@ export async function importAll(
     for (const i of payload.items) {
       await db.runAsync(
         `INSERT OR REPLACE INTO items
-         (id, container_id, item_index_id, notes, quantity, location, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, container_id, item_index_id, notes, quantity, location, sockets, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           i.id,
           i.containerId,
@@ -620,6 +631,7 @@ export async function importAll(
           i.notes,
           i.quantity,
           i.location,
+          i.sockets ?? null,
           i.createdAt,
           i.updatedAt,
         ],

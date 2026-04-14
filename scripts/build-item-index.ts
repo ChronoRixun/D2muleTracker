@@ -343,13 +343,20 @@ function buildPropertyNameMap(propertiesData: any): Record<string, string> {
 function extractVariableStats(
   item: any,
   propNames: Record<string, string>,
+  fieldPrefix: { code: string; min: string; max: string; par: string } = {
+    code: 'prop',
+    min: 'min',
+    max: 'max',
+    par: 'par',
+  },
+  maxProps = 12,
 ): VariableStat[] {
   const stats: VariableStat[] = [];
-  for (let i = 1; i <= 12; i++) {
-    const code = item[`prop${i}`];
+  for (let i = 1; i <= maxProps; i++) {
+    const code = item[`${fieldPrefix.code}${i}`];
     if (!code) continue;
-    const rawMin = Number(item[`min${i}`] ?? 0);
-    const rawMax = Number(item[`max${i}`] ?? 0);
+    const rawMin = Number(item[`${fieldPrefix.min}${i}`] ?? 0);
+    const rawMax = Number(item[`${fieldPrefix.max}${i}`] ?? 0);
     if (rawMin === rawMax) continue;
     // Display as absolute values since property name implies the direction.
     const min = Math.min(Math.abs(rawMin), Math.abs(rawMax));
@@ -467,7 +474,11 @@ function flattenSetItems(
   return out;
 }
 
-function flattenRunewords(src: any, strings: Strings): ItemEntry[] {
+function flattenRunewords(
+  src: any,
+  strings: Strings,
+  propNames: Record<string, string>,
+): ItemEntry[] {
   const rows = parseObjectLike<any>(src);
   const out: ItemEntry[] = [];
   rows.forEach((r, i) => {
@@ -490,6 +501,12 @@ function flattenRunewords(src: any, strings: Strings): ItemEntry[] {
       ROTW_NAME_KEYWORDS.some((k) => keywordMatches(k, name))
         ? 'rotw'
         : 'lod';
+    const vars = extractVariableStats(
+      r,
+      propNames,
+      { code: 'T1Code', min: 'T1Min', max: 'T1Max', par: 'T1Param' },
+      7,
+    );
     out.push({
       id: `runeword-${r.__key ?? i}`,
       name,
@@ -502,6 +519,7 @@ function flattenRunewords(src: any, strings: Strings): ItemEntry[] {
       runewordTypes: types,
       era,
       searchTerms: buildSearchTerms(name, ''),
+      ...(vars.length > 0 ? { variableStats: vars } : {}),
     });
   });
   return out;
@@ -562,6 +580,7 @@ function flattenBases(
         name,
         type: r.type,
       });
+      const maxSockets = Number(r.gemsockets ?? 0);
       out.push({
         id: `base-${kind}-${code}`,
         name,
@@ -572,6 +591,7 @@ function flattenBases(
         code,
         era,
         searchTerms: buildSearchTerms(name, ''),
+        ...(maxSockets > 0 ? { maxSockets } : {}),
       });
     });
   };
@@ -648,7 +668,7 @@ async function main() {
 
   const uniqueEntries = flattenUniques(uniques, strings, baseNames, propNames);
   const setEntries = flattenSetItems(setitems, sets, strings, baseNames, propNames);
-  const runewordEntries = flattenRunewords(runewords, strings);
+  const runewordEntries = flattenRunewords(runewords, strings, propNames);
   const miscEntriesRaw = flattenMisc(misc, strings);
   const baseEntries = flattenBases(armor, weapons, strings);
 

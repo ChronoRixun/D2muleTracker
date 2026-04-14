@@ -261,6 +261,7 @@ export default function SearchScreen() {
                   >
                     {hit.entry.name}
                     {hit.item.quantity > 1 ? `  ×${hit.item.quantity}` : ''}
+                    {hit.item.sockets != null ? `  · ${hit.item.sockets}os` : ''}
                   </Text>
                   <CategoryBadge category={hit.entry.category} />
                 </View>

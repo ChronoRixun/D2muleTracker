@@ -34,6 +34,7 @@ export interface ItemEntry {
   era: Era;
   searchTerms: string[];
   variableStats?: VariableStat[];
+  maxSockets?: number;
 }
 
 export type CharacterClass =
@@ -82,6 +83,7 @@ export interface ItemRecord {
   notes: string | null;
   quantity: number;
   location: ItemLocation;
+  sockets: number | null;
   createdAt: string;
   updatedAt: string;
 }
