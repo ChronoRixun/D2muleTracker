@@ -10,7 +10,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import type { Era, ItemCategory, ItemEntry } from '../lib/types';
+import type { Era, ItemCategory, ItemEntry, VariableStat } from '../lib/types';
 
 const REPO_RAW = 'https://raw.githubusercontent.com/blizzhackers/d2data/master/json';
 const CACHE_DIR = path.join(__dirname, '.cache');
@@ -27,6 +27,7 @@ const SOURCES = [
   'weapons.json',
   'misc.json',
   'allstrings-eng.json',
+  'properties.json',
 ] as const;
 
 type SourceName = (typeof SOURCES)[number];
@@ -263,6 +264,102 @@ function buildSearchTerms(name: string, baseName: string): string[] {
   return Array.from(terms);
 }
 
+// ---- Property name map / variable stats ----------------------------------
+
+const PROPERTY_NAME_OVERRIDES: Record<string, string> = {
+  'dmg%': 'Enhanced Damage',
+  'ac%': 'Enhanced Defense',
+  ac: 'Defense',
+  'res-all': 'All Resistances',
+  'mag%': 'Magic Find',
+  lifesteal: 'Life Leech',
+  manasteal: 'Mana Leech',
+  cast1: 'Faster Cast Rate',
+  cast2: 'Faster Cast Rate',
+  cast3: 'Faster Cast Rate',
+  swing2: 'Increased Attack Speed',
+  move2: 'Faster Run/Walk',
+  balance3: 'Faster Hit Recovery',
+  'red-dmg%': 'Damage Reduced',
+  'red-mag': 'Magic Damage Reduced',
+  crush: 'Crushing Blow',
+  deadly: 'Deadly Strike',
+  openwounds: 'Open Wounds',
+  thorns: 'Attacker Takes Damage',
+  'abs-mag': 'Magic Absorb',
+  str: 'Strength',
+  dex: 'Dexterity',
+  vit: 'Vitality',
+  enr: 'Energy',
+  hp: 'Life',
+  mana: 'Mana',
+  att: 'Attack Rating',
+  'dmg-norm': 'Added Damage',
+  allskills: 'All Skills',
+  'pierce-ltng': 'Enemy Lightning Res',
+  'pierce-fire': 'Enemy Fire Res',
+  'pierce-cold': 'Enemy Cold Res',
+  'extra-ltng': 'Lightning Skill Damage',
+  'extra-fire': 'Fire Skill Damage',
+  'extra-cold': 'Cold Skill Damage',
+  dur: 'Durability',
+  ease: 'Requirements',
+  stamdrain: 'Slower Stamina Drain',
+  sock: 'Sockets',
+  nofreeze: 'Cannot Be Frozen',
+  'regen-mana': 'Mana Regeneration',
+  stupidity: 'Hit Blinds Target',
+  howl: 'Hit Causes Monster to Flee',
+  light: 'Light Radius',
+  'rep-dur': 'Repairs Durability',
+  'rep-quant': 'Replenishes Quantity',
+};
+
+function cleanPropertyName(code: string, rawDesc: string): string {
+  if (PROPERTY_NAME_OVERRIDES[code]) return PROPERTY_NAME_OVERRIDES[code];
+  return rawDesc
+    .replace(/[+\-]?#%?/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildPropertyNameMap(propertiesData: any): Record<string, string> {
+  const rows = parseObjectLike<any>(propertiesData);
+  const map: Record<string, string> = {};
+  for (const r of rows) {
+    const code = r.code ?? '';
+    const desc = r['*desc'] ?? r['*Tooltip'] ?? '';
+    if (code && desc) {
+      map[code] = cleanPropertyName(code, desc);
+    }
+  }
+  // Ensure overrides apply even if a code wasn't present in properties.json
+  for (const [code, name] of Object.entries(PROPERTY_NAME_OVERRIDES)) {
+    if (!map[code]) map[code] = name;
+  }
+  return map;
+}
+
+function extractVariableStats(
+  item: any,
+  propNames: Record<string, string>,
+): VariableStat[] {
+  const stats: VariableStat[] = [];
+  for (let i = 1; i <= 12; i++) {
+    const code = item[`prop${i}`];
+    if (!code) continue;
+    const rawMin = Number(item[`min${i}`] ?? 0);
+    const rawMax = Number(item[`max${i}`] ?? 0);
+    if (rawMin === rawMax) continue;
+    // Display as absolute values since property name implies the direction.
+    const min = Math.min(Math.abs(rawMin), Math.abs(rawMax));
+    const max = Math.max(Math.abs(rawMin), Math.abs(rawMax));
+    const statName = propNames[code] || code;
+    stats.push({ stat: statName, min, max, code });
+  }
+  return stats;
+}
+
 function buildBaseNameLookup(
   items: any[],
   armor: any[],
@@ -289,6 +386,7 @@ function flattenUniques(
   src: any,
   strings: Strings,
   baseNames: Record<string, string>,
+  propNames: Record<string, string>,
 ): ItemEntry[] {
   const rows = parseObjectLike<any>(src);
   const out: ItemEntry[] = [];
@@ -303,6 +401,7 @@ function flattenUniques(
       name,
       type: r.type,
     });
+    const vars = extractVariableStats(r, propNames);
     out.push({
       id: `unique-${r.__key ?? i}`,
       name,
@@ -313,6 +412,7 @@ function flattenUniques(
       code,
       era,
       searchTerms: buildSearchTerms(name, baseName),
+      ...(vars.length > 0 ? { variableStats: vars } : {}),
     });
   });
   return out;
@@ -323,6 +423,7 @@ function flattenSetItems(
   sets: any,
   strings: Strings,
   baseNames: Record<string, string>,
+  propNames: Record<string, string>,
 ): ItemEntry[] {
   const setRows = parseObjectLike<any>(sets);
   const setByIndex: Record<string, any> = {};
@@ -348,6 +449,7 @@ function flattenSetItems(
       name,
       type: r.type,
     });
+    const vars = extractVariableStats(r, propNames);
     out.push({
       id: `set-${r.__key ?? i}`,
       name,
@@ -359,6 +461,7 @@ function flattenSetItems(
       setName: setName || undefined,
       era,
       searchTerms: buildSearchTerms(name, baseName),
+      ...(vars.length > 0 ? { variableStats: vars } : {}),
     });
   });
   return out;
@@ -523,6 +626,7 @@ async function main() {
     weapons,
     misc,
     allstringsRaw,
+    properties,
   ] = await Promise.all(SOURCES.map((s) => fetchJson(s)));
 
   // allstrings-eng.json is either an array or { [key]: { enUS } }.
@@ -539,9 +643,11 @@ async function main() {
   const armorRows = parseObjectLike<any>(armor);
   const weaponRows = parseObjectLike<any>(weapons);
   const baseNames = buildBaseNameLookup(itemRows, armorRows, weaponRows);
+  const propNames = buildPropertyNameMap(properties);
+  console.log(`  loaded ${Object.keys(propNames).length} property names`);
 
-  const uniqueEntries = flattenUniques(uniques, strings, baseNames);
-  const setEntries = flattenSetItems(setitems, sets, strings, baseNames);
+  const uniqueEntries = flattenUniques(uniques, strings, baseNames, propNames);
+  const setEntries = flattenSetItems(setitems, sets, strings, baseNames, propNames);
   const runewordEntries = flattenRunewords(runewords, strings);
   const miscEntriesRaw = flattenMisc(misc, strings);
   const baseEntries = flattenBases(armor, weapons, strings);
