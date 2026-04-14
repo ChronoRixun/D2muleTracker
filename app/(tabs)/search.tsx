@@ -153,60 +153,62 @@ export default function SearchScreen() {
         onChangeText={setQuery}
       />
 
-      {realms.length > 1 ? (
+      <View style={{ flexShrink: 0 }}>
+        {realms.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+            style={{ flexGrow: 0 }}
+          >
+            <FilterChip
+              label="All realms"
+              active={realmFilter === 'all'}
+              onPress={() => setRealmFilter('all')}
+            />
+            {realms.map((r) => (
+              <FilterChip
+                key={r.id}
+                label={r.name}
+                active={realmFilter === r.id}
+                onPress={() => setRealmFilter(r.id)}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
           style={{ flexGrow: 0 }}
         >
-          <FilterChip
-            label="All realms"
-            active={realmFilter === 'all'}
-            onPress={() => setRealmFilter('all')}
-          />
-          {realms.map((r) => (
-            <FilterChip
-              key={r.id}
-              label={r.name}
-              active={realmFilter === r.id}
-              onPress={() => setRealmFilter(r.id)}
-            />
-          ))}
-        </ScrollView>
-      ) : null}
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
-        style={{ flexGrow: 0 }}
-      >
-        {CATEGORY_OPTIONS.map((cat) => {
-          const active = categoryFilter.has(cat);
-          const color = categoryColor(cat);
-          return (
-            <Pressable
-              key={cat}
-              onPress={() => toggleCategory(cat)}
-              style={[
-                styles.catChip,
-                { borderColor: color },
-                active && { backgroundColor: color },
-              ]}
-            >
-              <Text
+          {CATEGORY_OPTIONS.map((cat) => {
+            const active = categoryFilter.has(cat);
+            const color = categoryColor(cat);
+            return (
+              <Pressable
+                key={cat}
+                onPress={() => toggleCategory(cat)}
                 style={[
-                  styles.catChipText,
-                  { color: active ? colors.bg : color },
+                  styles.catChip,
+                  { borderColor: color },
+                  active && { backgroundColor: color },
                 ]}
               >
-                {cat}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+                <Text
+                  style={[
+                    styles.catChipText,
+                    { color: active ? colors.bg : color },
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {debounced.length < 2 ? (
         <View style={styles.hintWrap}>
