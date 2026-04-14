@@ -64,6 +64,18 @@ export default function ContainerDetailScreen() {
   const [sortBy, setSortBy] = useState<'newest' | 'name' | 'category'>('newest');
   const [filterCategory, setFilterCategory] = useState<ItemCategory | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkMoveTarget, setBulkMoveTarget] = useState<string[] | null>(null);
+
+  const toggleSelect = (itemId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -184,13 +196,55 @@ export default function ContainerDetailScreen() {
             </View>
           ) : null}
         </View>
-        <Pressable
-          style={styles.editBtn}
-          onPress={() => setEditContainer(true)}
-        >
-          <Text style={styles.editBtnText}>Edit</Text>
-        </Pressable>
+        <View style={styles.headerBtns}>
+          {items.length > 0 ? (
+            <Pressable
+              style={[styles.editBtn, selectMode && styles.editBtnActive]}
+              onPress={() => {
+                setSelectMode(!selectMode);
+                setSelectedIds(new Set());
+              }}
+            >
+              <Text
+                style={[
+                  styles.editBtnText,
+                  selectMode && styles.editBtnTextActive,
+                ]}
+              >
+                {selectMode ? 'Done' : 'Select'}
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            style={styles.editBtn}
+            onPress={() => setEditContainer(true)}
+          >
+            <Text style={styles.editBtnText}>Edit</Text>
+          </Pressable>
+        </View>
       </View>
+
+      {selectMode && itemsWithEntries.length > 0 ? (
+        <Pressable
+          style={styles.selectAllBtn}
+          onPress={() => {
+            if (selectedIds.size === itemsWithEntries.length) {
+              setSelectedIds(new Set());
+            } else {
+              setSelectedIds(
+                new Set(itemsWithEntries.map((x) => x.item.id)),
+              );
+            }
+          }}
+        >
+          <Text style={styles.selectAllText}>
+            {selectedIds.size === itemsWithEntries.length
+              ? 'Deselect All'
+              : 'Select All'}
+            {selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {items.length > 0 ? (
         <ScrollView
@@ -306,28 +360,96 @@ export default function ContainerDetailScreen() {
               colors={[colors.primary]}
             />
           }
-          renderItem={({ item: row }) => (
-            <SwipeableItemRow
-              entry={row.entry}
-              item={row.item}
-              onPress={() => setEditTarget(row.item)}
-              onDelete={() => handleSwipeDelete(row.item)}
-            />
-          )}
+          renderItem={({ item: row }) =>
+            selectMode ? (
+              <Pressable
+                style={styles.selectRow}
+                onPress={() => toggleSelect(row.item.id)}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    selectedIds.has(row.item.id) && styles.checkboxChecked,
+                  ]}
+                >
+                  {selectedIds.has(row.item.id) ? (
+                    <Text style={styles.checkmark}>✓</Text>
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ItemRow
+                    entry={row.entry}
+                    notes={row.item.notes}
+                    quantity={row.item.quantity}
+                  />
+                </View>
+              </Pressable>
+            ) : (
+              <SwipeableItemRow
+                entry={row.entry}
+                item={row.item}
+                onPress={() => setEditTarget(row.item)}
+                onDelete={() => handleSwipeDelete(row.item)}
+              />
+            )
+          }
         />
       )}
 
-      <Pressable
-        style={styles.fab}
-        onPress={() =>
-          router.push({
-            pathname: '/modal/add-item',
-            params: { containerId: container.id },
-          })
-        }
-      >
-        <Text style={styles.fabText}>+ Add Item</Text>
-      </Pressable>
+      {selectMode && selectedIds.size > 0 ? (
+        <View style={styles.bulkBar}>
+          <Pressable
+            style={styles.bulkMoveBtn}
+            onPress={() => setBulkMoveTarget([...selectedIds])}
+          >
+            <Text style={styles.bulkBtnText}>Move {selectedIds.size}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.bulkDeleteBtn}
+            onPress={() => {
+              Alert.alert(
+                `Delete ${selectedIds.size} items?`,
+                'This cannot be undone.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                      for (const itemId of selectedIds) {
+                        await deleteItem(db, itemId);
+                      }
+                      setSelectedIds(new Set());
+                      setSelectMode(false);
+                      bumpRevision();
+                      reload();
+                      Haptics.notificationAsync(
+                        Haptics.NotificationFeedbackType.Success,
+                      ).catch(() => undefined);
+                    },
+                  },
+                ],
+              );
+            }}
+          >
+            <Text style={styles.bulkDeleteText}>
+              Delete {selectedIds.size}
+            </Text>
+          </Pressable>
+        </View>
+      ) : selectMode ? null : (
+        <Pressable
+          style={styles.fab}
+          onPress={() =>
+            router.push({
+              pathname: '/modal/add-item',
+              params: { containerId: container.id },
+            })
+          }
+        >
+          <Text style={styles.fabText}>+ Add Item</Text>
+        </Pressable>
+      )}
 
       <EditItemModal
         target={editTarget}
@@ -375,6 +497,27 @@ export default function ContainerDetailScreen() {
           setMoveTarget(null);
           bumpRevision();
           reload();
+        }}
+      />
+
+      <BulkMoveModal
+        itemIds={bulkMoveTarget}
+        currentRealmId={container.realmId}
+        currentContainerId={container.id}
+        onClose={() => setBulkMoveTarget(null)}
+        onSelect={async (newContainerId) => {
+          if (!bulkMoveTarget) return;
+          for (const itemId of bulkMoveTarget) {
+            await updateItem(db, itemId, { containerId: newContainerId });
+          }
+          setBulkMoveTarget(null);
+          setSelectedIds(new Set());
+          setSelectMode(false);
+          bumpRevision();
+          reload();
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          ).catch(() => undefined);
         }}
       />
 
@@ -792,7 +935,80 @@ function MoveItemModal({
               ))
             )}
           </ScrollView>
-          <Pressable style={styles.ghostBtn} onPress={onClose}>
+          <Pressable style={styles.cancelBtn} onPress={onClose}>
+            <Text style={styles.ghostBtnText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ---- Bulk move modal ------------------------------------------------------
+
+interface BulkMoveModalProps {
+  itemIds: string[] | null;
+  currentRealmId: string;
+  currentContainerId: string;
+  onClose: () => void;
+  onSelect: (containerId: string) => void;
+}
+
+function BulkMoveModal({
+  itemIds,
+  currentRealmId,
+  currentContainerId,
+  onClose,
+  onSelect,
+}: BulkMoveModalProps) {
+  const { db } = useDatabase();
+  const [options, setOptions] = useState<Container[]>([]);
+
+  useEffect(() => {
+    if (!itemIds) return;
+    listContainers(db, currentRealmId).then((list) =>
+      setOptions(list.filter((c) => c.id !== currentContainerId)),
+    );
+  }, [db, itemIds, currentRealmId, currentContainerId]);
+
+  const count = itemIds?.length ?? 0;
+
+  return (
+    <Modal
+      visible={!!itemIds}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalSheet}>
+          <Text style={styles.sheetTitle}>
+            Move {count} item{count === 1 ? '' : 's'} to…
+          </Text>
+          <Text style={styles.sheetSub}>Same realm only.</Text>
+          <ScrollView style={{ maxHeight: 320 }}>
+            {options.length === 0 ? (
+              <Text style={styles.emptyBody}>
+                No other containers in this realm yet.
+              </Text>
+            ) : (
+              options.map((c) => (
+                <Pressable
+                  key={c.id}
+                  style={styles.moveRow}
+                  onPress={() => onSelect(c.id)}
+                >
+                  <Text style={styles.moveName}>{c.name}</Text>
+                  <Text style={styles.moveMeta}>
+                    {c.type === 'shared_stash'
+                      ? 'Stash'
+                      : `${c.class ?? ''} Lv ${c.level ?? '?'}`}
+                  </Text>
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+          <Pressable style={styles.cancelBtn} onPress={onClose}>
             <Text style={styles.ghostBtnText}>Cancel</Text>
           </Pressable>
         </View>
@@ -959,6 +1175,99 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
     fontSize: fontSize.sm,
+  },
+  editBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  editBtnTextActive: {
+    color: colors.bg,
+  },
+  headerBtns: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  cancelBtn: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  selectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.textMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.lg,
+    marginRight: spacing.xs,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkmark: {
+    color: colors.bg,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  selectAllBtn: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+  },
+  selectAllText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: fontSize.sm,
+  },
+  bulkBar: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    left: spacing.lg,
+    right: spacing.lg,
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  bulkMoveBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    elevation: 4,
+  },
+  bulkDeleteBtn: {
+    flex: 1,
+    backgroundColor: colors.danger,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    elevation: 4,
+  },
+  bulkBtnText: {
+    color: colors.bg,
+    fontWeight: '700',
+    fontSize: fontSize.md,
+  },
+  bulkDeleteText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: fontSize.md,
   },
   segmentRow: {
     flexDirection: 'row',
