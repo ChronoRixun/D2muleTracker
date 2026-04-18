@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -32,8 +32,9 @@ const CATEGORY_OPTIONS: ItemCategory[] = [
 
 export default function SearchScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ q?: string }>();
   const { db, revision } = useDatabase();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(params.q ?? '');
   const [debounced, setDebounced] = useState('');
   const [realms, setRealms] = useState<Realm[]>([]);
   const [realmFilter, setRealmFilter] = useState<string | 'all'>('all');
