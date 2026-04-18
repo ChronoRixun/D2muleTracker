@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1800"/>
+  <title>Hoard — D2 Mule Tracker · Ember</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Cinzel:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin:0; padding:0; background:#050302; -webkit-font-smoothing:antialiased; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    input, textarea, button { font-family: inherit; }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script src="ember/data.js"></script>
+  <script type="text/babel" src="ios-frame.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="ember/tokens.jsx"></script>
+  <script type="text/babel" src="ember/icons.jsx"></script>
+  <script type="text/babel" src="ember/atoms.jsx"></script>
+  <script type="text/babel" src="ember/screens-hero-1.jsx"></script>
+  <script type="text/babel" src="ember/screens-hero-2.jsx"></script>
+  <script type="text/babel" src="ember/screens-rest.jsx"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const TWEAKS = /*EDITMODE-BEGIN*/{
+      "palette": "abyssal",
+      "motion": "full",
+      "density": "comfortable"
+    }/*EDITMODE-END*/;
+
+    function App() {
+      const [tweaks, setTweaks] = React.useState(TWEAKS);
+      const [editing, setEditing] = React.useState(false);
+
+      React.useEffect(() => {
+        const onMsg = (e) => {
+          if (!e.data || typeof e.data !== 'object') return;
+          if (e.data.type === '__activate_edit_mode') setEditing(true);
+          if (e.data.type === '__deactivate_edit_mode') setEditing(false);
+        };
+        window.addEventListener('message', onMsg);
+        window.parent.postMessage({type:'__edit_mode_available'}, '*');
+        return () => window.removeEventListener('message', onMsg);
+      }, []);
+
+      const setTweak = (k, v) => {
+        setTweaks(prev => {
+          const next = { ...prev, [k]: v };
+          window.parent.postMessage({type:'__edit_mode_set_keys', edits:{[k]:v}}, '*');
+          return next;
+        });
+      };
+
+      const mot = tweaks.motion;
+      const den = tweaks.density;
+
+      const Art = ({ label, children }) => (
+        <DCArtboard label={label} width={390} height={844} style={{background:'#050302', borderRadius:48}}>
+          <IOSDevice width={390} height={844} dark>{children}</IOSDevice>
+        </DCArtboard>
+      );
+
+      return (
+        <>
+          <DesignCanvas style={{background:'#0a0504', backgroundImage:'radial-gradient(1200px 800px at 50% 0%, rgba(255,80,32,0.07), transparent 70%)'}}>
+            {/* Intro */}
+            <div style={{padding:'0 60px 32px', maxWidth:1400}}>
+              <div style={{fontSize:10, letterSpacing:4, color:'#ff8038', fontFamily:'"JetBrains Mono", monospace', fontWeight:700, marginBottom:10}}>
+                ◆ PROTOTYPE · v1 · HI-FI FLOW + SKETCHES
+              </div>
+              <div style={{fontSize:44, fontWeight:700, color:'#e8b048', letterSpacing:2,
+                fontFamily:'"Cinzel", serif', textShadow:'0 0 30px rgba(255,80,32,0.5)', lineHeight:1}}>
+                HOARD · EMBER · ABYSSAL
+              </div>
+              <div style={{fontSize:15, color:'rgba(240,200,150,0.7)', marginTop:10, maxWidth:820, lineHeight:1.6,
+                fontFamily:'"Cormorant Garamond", serif', fontStyle:'italic'}}>
+                A D2 mule tracker bound in obsidian and hellfire. Five-tab app: Chronicle (home), Mules,
+                Seek (search), Runes, Codex (settings). Hero flow — Chronicle → Mules → Container →
+                Item detail → Add Item — is polished. Secondary screens are sketched and handed off to
+                Claude Code. Toggle Tweaks in the toolbar to swap palette / motion / density.
+              </div>
+            </div>
+
+            {/* HERO FLOW */}
+            <DCSection
+              title="① Hero flow — polished"
+              subtitle="Chronicle → Mules → Container → Item detail → Add Item. Pixel fidelity, real data, iconography."
+            >
+              <Art label="1 · Chronicle (home)">
+                <ChronicleScreen motion={mot}/>
+              </Art>
+              <Art label="2 · Mules list">
+                <MulesScreen motion={mot}/>
+              </Art>
+              <Art label="3 · Container detail">
+                <ContainerScreen motion={mot} density={den}/>
+              </Art>
+              <Art label="4 · Item detail">
+                <ItemDetailScreen motion={mot}/>
+              </Art>
+              <Art label="5 · Add Item">
+                <AddItemScreen motion={mot}/>
+              </Art>
+            </DCSection>
+
+            {/* RUNES + WISHLIST + TRADES */}
+            <DCSection
+              title="② Runes · Wishlist · Trades"
+              subtitle="Runes has its own dashboard with sigil grid + runeword planner. Wishlist and Trades are sketched."
+            >
+              <Art label="Runes · grid">
+                <RunesScreen motion={mot}/>
+              </Art>
+              <Art label="Runes · words (same screen, tab 2)">
+                <RunesWordsTab motion={mot}/>
+              </Art>
+              <Art label="Wishlist / Hunt">
+                <WishlistScreen motion={mot}/>
+              </Art>
+              <Art label="Trades log">
+                <TradesScreen motion={mot}/>
+              </Art>
+            </DCSection>
+
+            {/* CODEX + ADD MULE + SEEK + EMPTY */}
+            <DCSection
+              title="③ Codex · Add Mule · Seek · Empty states"
+              subtitle="Settings/backup, mule binding form, search results, and three empty states."
+            >
+              <Art label="Codex · settings">
+                <CodexScreen motion={mot} tweaks={tweaks} setTweak={setTweak}/>
+              </Art>
+              <Art label="Add Mule">
+                <AddMuleScreen motion={mot}/>
+              </Art>
+              <Art label="Seek · results">
+                <SeekScreen motion={mot} state="results"/>
+              </Art>
+              <Art label="Empty · fresh install">
+                <EmptyScreen motion={mot} variant="fresh"/>
+              </Art>
+              <Art label="Empty · no mules">
+                <EmptyScreen motion={mot} variant="mules"/>
+              </Art>
+              <Art label="Empty · no search results">
+                <EmptyScreen motion={mot} variant="search"/>
+              </Art>
+            </DCSection>
+
+            {/* Handoff note */}
+            <div style={{padding:'20px 60px 80px', maxWidth:1200}}>
+              <div style={{fontSize:12, letterSpacing:3, color:'#ff8038', fontFamily:'"JetBrains Mono", monospace', fontWeight:700, marginBottom:10}}>
+                ◆ HANDOFF
+              </div>
+              <div style={{fontSize:22, fontWeight:600, color:'#e8b048', marginBottom:14,
+                fontFamily:'"Cinzel", serif', letterSpacing:2}}>
+                NEXT STEPS
+              </div>
+              <ul style={{fontSize:14, color:'rgba(240,200,150,0.8)', lineHeight:1.7, paddingLeft:20,
+                fontFamily:'Inter, system-ui, sans-serif', maxWidth:820}}>
+                <li>A <b>claude-code-handoff.md</b> file is checked in — copy/paste into a new Claude Code session to build the working app.</li>
+                <li>Hero flow has real data flowing through it. Secondary screens (Runes/Wishlist/Trades/Codex/Add Mule) are at good-enough fidelity — refine after the core flow ships.</li>
+                <li>Tweaks panel (toggle in toolbar) flips palette · motion · density live and persists to the file.</li>
+                <li>Iconography is hand-drawn SVG — not lifted from game-icons.net or Blizzard. Original silhouettes only.</li>
+                <li>Rarity colors are D2-semantic conventions (color as language), not lifted assets.</li>
+              </ul>
+            </div>
+          </DesignCanvas>
+
+          {editing && <TweaksPanel tweaks={tweaks} setTweak={setTweak}/>}
+        </>
+      );
+    }
+
+    // Minimal helper — Runes Words tab preview (renders RunesScreen, then flips tab)
+    function RunesWordsTab({ motion }) {
+      // Hack: render RunesScreen then simulate clicking "Words" tab
+      const ref = React.useRef(null);
+      React.useEffect(() => {
+        setTimeout(() => {
+          const root = ref.current;
+          if (!root) return;
+          // Find Chip labeled "Words" and click
+          const chips = root.querySelectorAll('div');
+          for (const c of chips) {
+            if (c.textContent.trim() === 'Words' && c.style.cursor === 'pointer') { c.click(); break; }
+          }
+        }, 40);
+      }, []);
+      return <div ref={ref} style={{width:'100%', height:'100%'}}><RunesScreen motion={motion}/></div>;
+    }
+
+    function TweaksPanel({ tweaks, setTweak }) {
+      return (
+        <div style={{
+          position:'fixed', top:20, right:20, width:300, zIndex:9999,
+          background:'rgba(13,7,5,0.97)', border:'1px solid #3d1e0c',
+          boxShadow:'0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(255,80,32,0.15)',
+          fontFamily:'"Cinzel", serif', backdropFilter:'blur(10px)',
+        }}>
+          <div style={{
+            padding:'14px 16px', borderBottom:'1px solid #3d1e0c',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            background:'linear-gradient(90deg, rgba(255,80,32,0.15), transparent)',
+          }}>
+            <div style={{color:'#e8b048', fontSize:14, fontWeight:700, letterSpacing:3, textShadow:'0 0 10px rgba(255,80,32,0.5)'}}>
+              TWEAKS
+            </div>
+            <div style={{color:'#9a7a5c', fontSize:10, letterSpacing:2, fontFamily:'"JetBrains Mono", monospace'}}>
+              HOARD v1
+            </div>
+          </div>
+
+          <PanelSection label="PALETTE">
+            {[{v:'abyssal',l:'Abyssal',d:'deepest black · cool embers'},
+              {v:'hellforge',l:'Hellforge',d:'forge-warm · molten gold'}].map(o => (
+              <Radio key={o.v} active={tweaks.palette===o.v} onClick={()=>setTweak('palette', o.v)} label={o.l} desc={o.d}/>
+            ))}
+          </PanelSection>
+
+          <PanelSection label="MOTION">
+            {[{v:'subtle',l:'Subtle',d:'minimal motion · readable'},
+              {v:'full',l:'Full Hellforge',d:'floating embers · glow pulse · flicker'}].map(o => (
+              <Radio key={o.v} active={tweaks.motion===o.v} onClick={()=>setTweak('motion', o.v)} label={o.l} desc={o.d}/>
+            ))}
+          </PanelSection>
+
+          <PanelSection label="DENSITY" last>
+            {[{v:'comfortable',l:'Comfortable',d:'1 item per row'},
+              {v:'dense',l:'Dense',d:'2 columns · more items on screen'}].map(o => (
+              <Radio key={o.v} active={tweaks.density===o.v} onClick={()=>setTweak('density', o.v)} label={o.l} desc={o.d}/>
+            ))}
+          </PanelSection>
+        </div>
+      );
+    }
+
+    function PanelSection({ label, children, last }) {
+      return (
+        <div style={{padding:'14px 16px', borderBottom: last ? 'none' : '1px solid #2a1408'}}>
+          <div style={{color:'#9a7a5c', fontSize:10, letterSpacing:2.5, fontFamily:'"JetBrains Mono", monospace', fontWeight:600}}>{label}</div>
+          <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:8}}>{children}</div>
+        </div>
+      );
+    }
+
+    function Radio({ active, onClick, label, desc }) {
+      return (
+        <div onClick={onClick} style={{
+          padding:'10px 12px', cursor:'pointer',
+          border:`1px solid ${active?'#e8b048':'#2a1408'}`,
+          background: active?'rgba(232,176,72,0.08)':'transparent',
+          display:'flex', alignItems:'center', gap:10,
+        }}>
+          <div style={{
+            width:12, height:12, borderRadius:'50%',
+            border:`2px solid ${active?'#ff5020':'#5a4030'}`,
+            background: active?'#ff5020':'transparent',
+            boxShadow: active?'0 0 8px rgba(255,80,32,0.6)':'none',
+            flexShrink:0,
+          }}/>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{color: active?'#e8b048':'#f0d8b8', fontFamily:'"Cinzel", serif', fontSize:13, fontWeight:600, letterSpacing:1}}>
+              {label}
+            </div>
+            <div style={{color:'#9a7a5c', fontSize:10, fontFamily:'Inter, system-ui, sans-serif', marginTop:1, fontStyle:'italic'}}>
+              {desc}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
