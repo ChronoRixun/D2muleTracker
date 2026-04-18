@@ -496,6 +496,76 @@ export async function findItemsByIndexIds(
   }));
 }
 
+export async function findItemsByTags(
+  db: SQLiteDatabase,
+  tags: string[],
+  realmId?: string,
+): Promise<Array<{ item: ItemRecord; container: Container; realm: Realm }>> {
+  const normalized = tags.map((t) => t.trim()).filter((t) => t.length > 0);
+  if (normalized.length === 0) return [];
+  const tagPlaceholders = normalized.map(() => '?').join(',');
+  const params: any[] = [...normalized, normalized.length];
+  let sql = `
+    SELECT i.*, c.realm_id AS c_realm_id,
+           c.id AS c_id, c.name AS c_name, c.type AS c_type, c.class AS c_class,
+           c.level AS c_level, c.is_active AS c_is_active,
+           c.sort_order AS c_sort_order, c.created_at AS c_created_at,
+           c.updated_at AS c_updated_at,
+           r.id AS r_id, r.name AS r_name, r.era AS r_era, r.mode AS r_mode,
+           r.ladder AS r_ladder, r.region AS r_region, r.created_at AS r_created_at
+    FROM items i
+    JOIN containers c ON c.id = i.container_id
+    JOIN realms     r ON r.id = c.realm_id
+    WHERE i.id IN (
+      SELECT item_id FROM item_tags
+      WHERE tag IN (${tagPlaceholders})
+      GROUP BY item_id
+      HAVING COUNT(DISTINCT tag) = ?
+    )
+  `;
+  if (realmId) {
+    sql += ' AND r.id = ?';
+    params.push(realmId);
+  }
+  sql += ' ORDER BY r.name, c.name, i.created_at DESC';
+
+  const rows = await db.getAllAsync<any>(sql, params);
+  return rows.map((row) => ({
+    item: mapItem({
+      id: row.id,
+      container_id: row.container_id,
+      item_index_id: row.item_index_id,
+      notes: row.notes,
+      quantity: row.quantity,
+      location: row.location,
+      sockets: row.sockets,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }),
+    container: mapContainer({
+      id: row.c_id,
+      realm_id: row.c_realm_id,
+      name: row.c_name,
+      type: row.c_type,
+      class: row.c_class,
+      level: row.c_level,
+      is_active: row.c_is_active,
+      sort_order: row.c_sort_order,
+      created_at: row.c_created_at,
+      updated_at: row.c_updated_at,
+    }),
+    realm: mapRealm({
+      id: row.r_id,
+      name: row.r_name,
+      era: row.r_era,
+      mode: row.r_mode,
+      ladder: row.r_ladder,
+      region: row.r_region,
+      created_at: row.r_created_at,
+    }),
+  }));
+}
+
 export async function searchNotes(
   db: SQLiteDatabase,
   query: string,
