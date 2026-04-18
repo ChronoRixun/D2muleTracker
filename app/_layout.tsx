@@ -12,6 +12,7 @@ import { CormorantGaramond_400Regular_Italic } from '@expo-google-fonts/cormoran
 import { JetBrainsMono_400Regular, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 
 import { AnimatedSplash } from '@/components/AnimatedSplash';
+import { MotionFXLayer } from '@/components/ember/MotionFXLayer';
 import { TutorialCarousel } from '@/components/tutorial/TutorialCarousel';
 import { DatabaseProvider } from '@/hooks/useDatabase';
 import { SettingsProvider, useSettings } from '@/lib/settings';
@@ -150,6 +151,9 @@ function AppShell() {
           options={{ presentation: 'modal', title: 'Add Item' }}
         />
       </Stack>
+
+      {/* Motion intensity overlay sits above all screens but below splash/tutorial. */}
+      <MotionFXLayer />
 
       {showAnimatedSplash ? (
         <AnimatedSplash onComplete={handleSplashComplete} />

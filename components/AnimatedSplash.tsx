@@ -27,17 +27,21 @@ import { Diamond } from '@/components/ember/Diamond';
 import { useSettings } from '@/lib/settings';
 import { colors, typography } from '@/lib/theme';
 
+// Splash plays once on cold launch — read effective motion (reduced-motion
+// aware) so users with the system setting on always get the calmer choreography.
+
 interface AnimatedSplashProps {
   onComplete: () => void;
 }
 
 export function AnimatedSplash({ onComplete }: AnimatedSplashProps) {
-  const { motion } = useSettings();
+  const { effectiveMotion } = useSettings();
+  const fullChoreography = effectiveMotion !== 'subtle';
   const progress = useSharedValue(0);
-  const particles = motion === 'full' ? 16 : 0;
+  const particles = fullChoreography ? (effectiveMotion === 'hellforge' ? 22 : 12) : 0;
 
   // Full: 2.4s total. Subtle: 1.65s total.
-  const duration = motion === 'full' ? 2400 : 1650;
+  const duration = fullChoreography ? 2400 : 1650;
 
   useEffect(() => {
     progress.value = withTiming(1, {
@@ -55,7 +59,7 @@ export function AnimatedSplash({ onComplete }: AnimatedSplashProps) {
   }, [duration]);
 
   const sigilStyle = useAnimatedStyle(() => {
-    if (motion === 'full') {
+    if (fullChoreography) {
       // 0.0-0.6s: ember core ignites
       const emberAlpha = interpolate(progress.value, [0, 0.25], [0, 1]);
       return { opacity: emberAlpha };
@@ -64,7 +68,7 @@ export function AnimatedSplash({ onComplete }: AnimatedSplashProps) {
   });
 
   const wordmarkStyle = useAnimatedStyle(() => {
-    if (motion === 'full') {
+    if (fullChoreography) {
       // 0.4-1.0s: wordmark fades in, decaying flicker for ~800ms
       const t = progress.value;
       const fadeIn = interpolate(t, [0.17, 0.42], [0, 1]);
@@ -82,7 +86,7 @@ export function AnimatedSplash({ onComplete }: AnimatedSplashProps) {
   });
 
   const taglineStyle = useAnimatedStyle(() => {
-    if (motion === 'full') {
+    if (fullChoreography) {
       // 0.8-1.4s: tagline reveal
       const fadeIn = interpolate(progress.value, [0.33, 0.58], [0, 1]);
       return { opacity: fadeIn };
@@ -91,7 +95,7 @@ export function AnimatedSplash({ onComplete }: AnimatedSplashProps) {
   });
 
   const containerStyle = useAnimatedStyle(() => {
-    if (motion === 'full') {
+    if (fullChoreography) {
       // 2.0-2.4s: fade out (0.83-1.0)
       const fadeOut = interpolate(progress.value, [0.83, 1.0], [1, 0]);
       return { opacity: Math.pow(Math.max(fadeOut, 0), 0.6) };
@@ -110,7 +114,7 @@ export function AnimatedSplash({ onComplete }: AnimatedSplashProps) {
         style={StyleSheet.absoluteFill}
       />
 
-      {motion === 'full' ? (
+      {fullChoreography ? (
         <LinearGradient
           colors={['rgba(255,80,32,0.25)', 'transparent']}
           style={StyleSheet.absoluteFill}

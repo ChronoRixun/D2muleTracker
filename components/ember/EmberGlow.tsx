@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { useSettings } from '@/lib/settings';
+import { useMotionConfig } from '@/lib/settings';
 import { colors } from '@/lib/theme';
 
 interface Props {
@@ -33,11 +33,12 @@ export function EmberGlow({
   duration = 1400,
   style,
 }: Props) {
-  const { motion } = useSettings();
+  const cfg = useMotionConfig();
+  const animated = cfg.itemGlowPulse;
   const opacity = useSharedValue(min);
 
   useEffect(() => {
-    if (motion !== 'full') {
+    if (!animated) {
       cancelAnimation(opacity);
       opacity.value = min;
       return;
@@ -48,7 +49,7 @@ export function EmberGlow({
       true,
     );
     return () => cancelAnimation(opacity);
-  }, [motion, opacity, min, max, duration]);
+  }, [animated, opacity, min, max, duration]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     shadowOpacity: opacity.value,

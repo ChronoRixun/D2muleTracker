@@ -15,7 +15,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { useSettings } from '@/lib/settings';
+import { useMotionConfig } from '@/lib/settings';
 import { colors } from '@/lib/theme';
 import { EIcon, type EIconName } from './EIcon';
 
@@ -27,19 +27,20 @@ interface Props {
 }
 
 export function FAB({ onPress, icon = 'plus', bottom = 94, right = 20 }: Props) {
-  const { motion } = useSettings();
+  const cfg = useMotionConfig();
+  const animated = cfg.itemGlowPulse;
   const pulse = useSharedValue(0.85);
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    if (motion !== 'full') {
+    if (!animated) {
       cancelAnimation(pulse);
       pulse.value = 0.85;
       return;
     }
     pulse.value = withRepeat(withTiming(1, { duration: 1400 }), -1, true);
     return () => cancelAnimation(pulse);
-  }, [motion, pulse]);
+  }, [animated, pulse]);
 
   const glowStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
   const pressStyle = useAnimatedStyle(() => ({
