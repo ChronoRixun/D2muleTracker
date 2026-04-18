@@ -28,7 +28,7 @@ export function SetDetailModal({ set, visible, onClose }: Props) {
 
     onClose();
     router.push({
-      pathname: '/search',
+      pathname: '/(tabs)/search',
       params: { q: piece.name },
     });
   };

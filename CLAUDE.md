@@ -28,7 +28,7 @@ Offline-first Diablo 2 Resurrected mule inventory tracker. Lets players catalog 
 - Reanimated v4 — use `ReanimatedSwipeable` from `react-native-gesture-handler/ReanimatedSwipeable`, NOT the deprecated `Swipeable`
 - React 19.1 — `useContext` still works but `use()` is available; `Context.Provider` can be simplified to `Context`
 - Web: expo-sqlite is stubbed out via Metro resolver (`metro.config.js`). Web shows a "use Expo Go" fallback. Don't break web even though it's not the target platform.
-- Database schema is at **version 2** (v1: initial tables, v2: added `sockets` column to items)
+- Database schema is at **version 3** (v1: initial tables, v2: added `sockets` column to items, v3: added `item_tags` table)
 
 ---
 
@@ -36,7 +36,11 @@ Offline-first Diablo 2 Resurrected mule inventory tracker. Lets players catalog 
 
 ```
 app/                    Expo Router screens
-  (tabs)/               Tab navigator (Mules, Find Item, Settings)
+  (tabs)/               Tab navigator (Mules, Find Item, Collections, Settings)
+    index.tsx           Mules tab (realms & containers)
+    search.tsx          Find Item tab (cross-container search)
+    collections.tsx     Collections tab (sets & runewords progress)
+    settings.tsx        Settings tab
   container/[id].tsx    Container detail (items list, sort, filter, bulk select)
   modal/add-item.tsx    Add item modal with autocomplete + variable stats
 assets/data/            Bundled item-index.json
@@ -46,6 +50,8 @@ components/             Reusable UI
   ItemTypeIcon.tsx      SVG icon component for item types
   itemTypeIconSvgs.ts   SVG markup strings for all item type icons
   ContainerCard.tsx     Mule/stash card with swipe-to-archive
+  SetProgressCard.tsx   Set completion card with progress bar & dots
+  SetDetailModal.tsx    Modal showing all set pieces, owned vs missing
   CategoryBadge.tsx     Unique/Set/Runeword/etc. badge
   ItemAutocomplete.tsx  Search + autocomplete with recent items
   RealmTag.tsx          Realm indicator chip
@@ -63,6 +69,7 @@ scripts/                build-item-index.ts (generates item-index.json from d2da
 - **No `flex: 1` on standalone buttons.** Buttons in modal footer rows use `flex: 1` to share space. Standalone buttons (like "Create a Realm") must use `standaloneBtn` or explicit sizing — `flex: 1` causes them to stretch to fill the entire screen.
 - **Filter chip ScrollViews need `flexGrow: 0`** and should be wrapped in a `View` with `flexShrink: 0` to prevent compression by adjacent FlatLists.
 - **Container detail header: name gets full width.** The container name, subtitle, and category stats occupy full width on their own lines. Action buttons (Select, Share, Edit) go in a row BELOW the name/stats, never beside them. Long container names must not be truncated by competing buttons.
+- **Expo Router navigation: use explicit group paths.** When navigating to tab screens from modals or other contexts, use the full path including the group: `router.push({ pathname: '/(tabs)/search', params: { ... } })` instead of just `/search`. This ensures the router correctly resolves nested routes and tab navigation.
 - **Haptics are light only.** Use `Haptics.impactAsync(ImpactFeedbackStyle.Light)` wrapped in `.catch(() => undefined)`. Never Medium or Heavy for routine interactions.
 - **Item index is read-only at runtime.** The bundled `item-index.json` is loaded once into memory on app start via `lib/itemIndex.ts`. It's never modified at runtime. To update items, modify `scripts/build-item-index.ts` and run `npm run build:item-index`.
 - **UUIDs via expo-crypto.** All database IDs use `Crypto.randomUUID()`.
@@ -136,13 +143,14 @@ Update the author names once you know which specific icons were selected.
 - [x] Phase 4 — Item type icons (game-icons.net SVGs), snapshot/share export
 - [x] Base item sockets — maxSockets in index, socket picker in add/edit modals, sockets column in DB (migration v2)
 - [x] Runeword variable stats — extracts T1Code/T1Min/T1Max variable rolls
+- [x] Collections tab — set completion tracker, runeword calculator
 
 ### Next
+- [ ] Custom tags — tag items (For Trade, God Roll, etc.), filter by tags
 - [ ] Phase 5 — App Store prep (icon, splash screen, developer license, store listing, screenshots)
 
 ### Maybe-Todo (only if needed)
 - [ ] Auto cloud sync (iCloud Drive / Google Drive background sync) — manual export/import already covers backup via native share sheet. Only add if users request it.
-- [ ] Runeword calculator — needs socket tracking on base items first (socket tracking now done, calculator could be built)
 - [ ] Item sprites (actual D2 inventory art) — copyright risk with Blizzard assets, using game-icons.net type icons instead
 
 ---
@@ -156,5 +164,5 @@ Update the author names once you know which specific icons were selected.
 5. **d2data property codes are NOT display names.** `dmg%` → "Enhanced Damage", `mag%` → "Magic Find", etc. The mapping is in `cleanPropertyName()` in the build script.
 6. **Modals with cancel buttons: don't use `flex: 1` on the cancel button** if it's below a ScrollView. The ScrollView takes all the space and the button becomes invisible. Use explicit padding with no flex.
 7. **Container header buttons go BELOW the name**, not beside it. Putting buttons in the same row as the container name causes long names to wrap/truncate. Use a vertical stack layout for the header.
-8. **Database migrations must be additive.** Schema version 2 adds `sockets` column. Future migrations must check `if (current < N)` and only apply their changes. Never drop or rename columns — existing user data must be preserved.
+8. **Database migrations must be additive.** Schema version 3 adds `item_tags` table. Future migrations must check `if (current < N)` and only apply their changes. Never drop or rename columns — existing user data must be preserved.
 9. **Runeword property fields use `T1Code{N}` prefix**, not `prop{N}` like uniques/sets. Any code that extracts item properties must handle both naming conventions.
