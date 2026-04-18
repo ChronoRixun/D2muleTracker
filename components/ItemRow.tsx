@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { categoryColor, colors, fontSize, radius, spacing } from '@/lib/theme';
+import { Chip } from '@/components/ember/Chip';
+import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
 import type { ItemEntry } from '@/lib/types';
 
 import { CategoryBadge } from './CategoryBadge';
@@ -11,6 +12,9 @@ interface Props {
   notes?: string | null;
   quantity?: number;
   sockets?: number | null;
+  tags?: string[];
+  activeTags?: string[];
+  onTagPress?: (tag: string) => void;
   rightHint?: string;
   onPress?: () => void;
   onLongPress?: () => void;
@@ -21,6 +25,9 @@ export function ItemRow({
   notes,
   quantity,
   sockets,
+  tags,
+  activeTags,
+  onTagPress,
   rightHint,
   onPress,
   onLongPress,
@@ -59,6 +66,23 @@ export function ItemRow({
           <Text style={styles.notes} numberOfLines={2}>
             {notes}
           </Text>
+        ) : null}
+        {tags && tags.length > 0 ? (
+          <View style={styles.tagRow}>
+            {tags.slice(0, 3).map((t) => (
+              <Chip
+                key={t}
+                label={t}
+                size="sm"
+                color={colors.gold}
+                active={activeTags?.includes(t)}
+                onPress={onTagPress ? () => onTagPress(t) : undefined}
+              />
+            ))}
+            {tags.length > 3 ? (
+              <Text style={styles.tagMore}>+{tags.length - 3} more</Text>
+            ) : null}
+          </View>
         ) : null}
       </View>
       {rightHint ? <Text style={styles.hint}>{rightHint}</Text> : null}
@@ -120,5 +144,19 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     padding: spacing.md,
     alignSelf: 'center',
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  tagMore: {
+    color: colors.textDim,
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 1,
+    marginLeft: 2,
   },
 });
