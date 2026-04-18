@@ -23,7 +23,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { useSettings } from '@/lib/settings';
+import { useMotionConfig } from '@/lib/settings';
 import { colors } from '@/lib/theme';
 
 interface Spot {
@@ -47,9 +47,9 @@ const SPOTS: Spot[] = [
 ];
 
 export function EmberBG() {
-  const { motion } = useSettings();
-  const particles = motion === 'full';
-  const intensity = particles ? 1 : 0.4;
+  const cfg = useMotionConfig();
+  const particles = cfg.legacyFull;
+  const intensity = cfg.bgIntensity;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">

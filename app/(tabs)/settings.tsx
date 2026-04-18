@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Chip } from '@/components/ember/Chip';
 import { EmberBG } from '@/components/ember/EmberBG';
 import { EmberBtn } from '@/components/ember/EmberBtn';
+import { MotionIntensityPicker } from '@/components/ember/MotionIntensityPicker';
 import { Rule } from '@/components/ember/Rule';
 import { SectionHead } from '@/components/ember/SectionHead';
 import { RealmTag } from '@/components/RealmTag';
@@ -45,8 +46,7 @@ const REGION_OPTIONS: Array<{ value: Region; label: string }> = [
 
 export default function SettingsScreen() {
   const { db, bumpRevision, revision } = useDatabase();
-  const { motion, density, setMotion, setDensity, setTutorialCompleted } =
-    useSettings();
+  const { density, setDensity, setTutorialCompleted } = useSettings();
   const [realms, setRealms] = useState<Realm[]>([]);
   const [editing, setEditing] = useState<Realm | 'new' | null>(null);
   const [importText, setImportText] = useState('');
@@ -122,26 +122,9 @@ export default function SettingsScreen() {
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
         >
           <View style={{ marginBottom: spacing.md }}>
-            <Rule label="Motion" accent={colors.ember} />
+            <Rule label="Motion Intensity" accent={colors.ember} />
           </View>
-          <View style={styles.chipWrap}>
-            <Chip
-              label="Subtle"
-              active={motion === 'subtle'}
-              onPress={() => setMotion('subtle')}
-            />
-            <Chip
-              label="Full Hellforge"
-              active={motion === 'full'}
-              onPress={() => setMotion('full')}
-              color={colors.ember}
-            />
-          </View>
-          <Text style={styles.hintItalic}>
-            {motion === 'full'
-              ? 'Embers rise. Glyphs pulse. The forge breathes.'
-              : 'A still, sleeping ember. Performance first.'}
-          </Text>
+          <MotionIntensityPicker />
 
           <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
             <Rule label="Density" accent={colors.ember} />
@@ -540,13 +523,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: spacing.md,
     lineHeight: 18,
-  },
-  hintItalic: {
-    color: colors.textMuted,
-    fontFamily: typography.hand,
-    fontSize: 13,
-    fontStyle: 'italic',
-    marginTop: spacing.sm,
   },
   chipWrap: {
     flexDirection: 'row',

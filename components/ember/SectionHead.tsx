@@ -14,7 +14,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { useSettings } from '@/lib/settings';
+import { useMotionConfig } from '@/lib/settings';
 import { colors, typography } from '@/lib/theme';
 import { Diamond } from './Diamond';
 
@@ -26,22 +26,27 @@ interface Props {
 }
 
 export function SectionHead({ eyebrow, title, right, style }: Props) {
-  const { motion } = useSettings();
+  const cfg = useMotionConfig();
+  // Hellforge → titles glow molten; Nightmare → gentle heat shimmer pulse;
+  // Subtle → static (held at the dim resting value).
+  const animated = cfg.headerShimmer;
+  const moltenMax = cfg.titleMolten ? 1 : 0.7;
+  const moltenDur = cfg.titleMolten ? 1600 : 2200;
   const flicker = useSharedValue(0.4);
 
   useEffect(() => {
-    if (motion !== 'full') {
+    if (!animated) {
       cancelAnimation(flicker);
       flicker.value = 0.4;
       return;
     }
     flicker.value = withRepeat(
-      withTiming(1, { duration: 1600 }),
+      withTiming(moltenMax, { duration: moltenDur }),
       -1,
       true,
     );
     return () => cancelAnimation(flicker);
-  }, [motion, flicker]);
+  }, [animated, flicker, moltenMax, moltenDur]);
 
   const glowStyle = useAnimatedStyle(() => ({
     opacity: flicker.value,
