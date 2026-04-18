@@ -234,10 +234,9 @@ const styles = StyleSheet.create({
     color: colors.ember,
   },
   bonusStat: {
-    fontFamily: typography.mono,
-    fontSize: 12,
+    fontFamily: typography.hand,
+    fontSize: fontSize.md,
     color: colors.textMuted,
-    letterSpacing: 1,
     marginBottom: 2,
   },
   bonusStatActive: {
