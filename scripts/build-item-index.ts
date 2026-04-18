@@ -552,6 +552,17 @@ function flattenRunewords(
       { code: 'T1Code', min: 'T1Min', max: 'T1Max', par: 'T1Param' },
       7,
     );
+    const allProps: VariableStat[] = [];
+    for (let n = 1; n <= 7; n++) {
+      const code = r[`T1Code${n}`];
+      if (!code) continue;
+      const rawMin = Number(r[`T1Min${n}`] ?? 0);
+      const rawMax = Number(r[`T1Max${n}`] ?? 0);
+      const min = Math.min(Math.abs(rawMin), Math.abs(rawMax));
+      const max = Math.max(Math.abs(rawMin), Math.abs(rawMax));
+      const statName = propNames[code] || code;
+      allProps.push({ stat: statName, min, max, code });
+    }
     out.push({
       id: `runeword-${r.__key ?? i}`,
       name,
@@ -565,6 +576,7 @@ function flattenRunewords(
       era,
       searchTerms: buildSearchTerms(name, ''),
       ...(vars.length > 0 ? { variableStats: vars } : {}),
+      ...(allProps.length > 0 ? { allProperties: allProps } : {}),
     });
   });
   return out;
