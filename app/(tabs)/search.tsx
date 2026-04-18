@@ -18,8 +18,14 @@ import { EmberBG } from '@/components/ember/EmberBG';
 import { SectionHead } from '@/components/ember/SectionHead';
 import { ItemTypeIcon } from '@/components/ItemTypeIcon';
 import { RealmTag } from '@/components/RealmTag';
-import { findItemsByIndexIds, listRealms, searchNotes } from '@/db/queries';
+import {
+  findItemsByIndexIds,
+  getItemTags,
+  listRealms,
+  searchNotes,
+} from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
+import { useAllTags } from '@/hooks/useTags';
 import { getItemById, searchItems } from '@/lib/itemIndex';
 import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
 import type { ItemCategory, ItemEntry, Realm, SearchHit } from '@/lib/types';
@@ -49,12 +55,24 @@ export default function SearchScreen() {
   const [categoryFilter, setCategoryFilter] = useState<Set<ItemCategory>>(
     new Set(),
   );
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  const [tagsByItem, setTagsByItem] = useState<Record<string, string[]>>({});
+  const { tags: allTags } = useAllTags();
 
   const toggleCategory = (cat: ItemCategory) => {
     setCategoryFilter((prev) => {
       const next = new Set(prev);
       if (next.has(cat)) next.delete(cat);
       else next.add(cat);
+      return next;
+    });
+  };
+
+  const toggleTag = (tag: string) => {
+    setTagFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
       return next;
     });
   };
@@ -126,6 +144,28 @@ export default function SearchScreen() {
     })();
   }, [db, debounced, realmFilter, revision]);
 
+  useEffect(() => {
+    const ids = [
+      ...hits.map((h) => h.item.id),
+      ...noteHits.map((h) => h.item.id),
+    ];
+    if (ids.length === 0) {
+      setTagsByItem({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string[]> = {};
+      for (const id of ids) {
+        next[id] = await getItemTags(db, id);
+      }
+      if (!cancelled) setTagsByItem(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [db, hits, noteHits, revision]);
+
   const combined = useMemo(() => {
     // De-duplicate by item id; prefer index match first.
     const seen = new Set<string>();
@@ -142,9 +182,19 @@ export default function SearchScreen() {
         out.push(h);
       }
     }
-    if (categoryFilter.size === 0) return out;
-    return out.filter((h) => categoryFilter.has(h.entry.category));
-  }, [hits, noteHits, categoryFilter]);
+    let filtered = out;
+    if (categoryFilter.size > 0) {
+      filtered = filtered.filter((h) => categoryFilter.has(h.entry.category));
+    }
+    if (tagFilter.size > 0) {
+      const required = Array.from(tagFilter);
+      filtered = filtered.filter((h) => {
+        const t = tagsByItem[h.item.id] ?? [];
+        return required.every((r) => t.includes(r));
+      });
+    }
+    return filtered;
+  }, [hits, noteHits, categoryFilter, tagFilter, tagsByItem]);
 
   return (
     <View style={styles.container}>
@@ -206,6 +256,32 @@ export default function SearchScreen() {
               />
             ))}
           </ScrollView>
+
+          {allTags.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+              style={{ flexGrow: 0 }}
+            >
+              {tagFilter.size > 0 ? (
+                <Chip
+                  label="Clear Tags"
+                  color={colors.ember}
+                  onPress={() => setTagFilter(new Set())}
+                />
+              ) : null}
+              {allTags.map((t) => (
+                <Chip
+                  key={t}
+                  label={t}
+                  color={colors.gold}
+                  active={tagFilter.has(t)}
+                  onPress={() => toggleTag(t)}
+                />
+              ))}
+            </ScrollView>
+          ) : null}
         </View>
 
       {debounced.length < 2 ? (
@@ -272,6 +348,25 @@ export default function SearchScreen() {
                   <Text style={styles.hitNotes} numberOfLines={2}>
                     {hit.item.notes}
                   </Text>
+                ) : null}
+                {(tagsByItem[hit.item.id]?.length ?? 0) > 0 ? (
+                  <View style={styles.hitTags}>
+                    {tagsByItem[hit.item.id]!.slice(0, 3).map((t) => (
+                      <Chip
+                        key={t}
+                        label={t}
+                        size="sm"
+                        color={colors.gold}
+                        active={tagFilter.has(t)}
+                        onPress={() => toggleTag(t)}
+                      />
+                    ))}
+                    {(tagsByItem[hit.item.id]?.length ?? 0) > 3 ? (
+                      <Text style={styles.hitTagMore}>
+                        +{(tagsByItem[hit.item.id]?.length ?? 0) - 3} more
+                      </Text>
+                    ) : null}
+                  </View>
                 ) : null}
               </View>
             </Pressable>
@@ -380,5 +475,18 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     marginTop: spacing.xs,
     fontStyle: 'italic',
+  },
+  hitTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: spacing.xs,
+    alignItems: 'center',
+  },
+  hitTagMore: {
+    color: colors.textDim,
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 1,
   },
 });

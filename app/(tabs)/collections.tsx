@@ -1,10 +1,11 @@
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -26,9 +27,75 @@ import {
   type SetProgress,
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
-import { colors, radius, spacing, typography } from '@/lib/theme';
+import { getItemIndex } from '@/lib/itemIndex';
+import { colors, spacing, typography } from '@/lib/theme';
+import type { ItemEntry } from '@/lib/types';
 
 type TabType = 'sets' | 'runewords';
+type RunewordFilter = 'all' | 'weapons' | 'armor' | 'shields' | 'helms';
+
+const RUNEWORD_WEAPON_TYPES = new Set([
+  'weap', 'mele', 'swor', 'axe', 'mace', 'hamm', 'club', 'scep', 'wand',
+  'staf', 'knif', 'spea', 'pole', 'miss', 'h2h',
+]);
+const RUNEWORD_ARMOR_TYPES = new Set(['tors']);
+const RUNEWORD_SHIELD_TYPES = new Set(['shld', 'ashd', 'pala']);
+const RUNEWORD_HELM_TYPES = new Set(['helm', 'head', 'grim']);
+
+const TYPE_LABELS: Record<string, string> = {
+  tors: 'Body Armor',
+  helm: 'Helm',
+  head: 'Helm',
+  grim: 'Grimoire',
+  shld: 'Shield',
+  ashd: 'Paladin Shield',
+  pala: 'Paladin Shield',
+  swor: 'Sword',
+  axe: 'Axe',
+  mace: 'Mace',
+  hamm: 'Hammer',
+  club: 'Club',
+  scep: 'Scepter',
+  wand: 'Wand',
+  staf: 'Staff',
+  knif: 'Dagger',
+  spea: 'Spear',
+  pole: 'Polearm',
+  miss: 'Missile Weapon',
+  h2h: 'Claw',
+  weap: 'Weapon',
+  mele: 'Melee Weapon',
+};
+
+function runewordMatchesFilter(
+  types: string[] | undefined,
+  filter: RunewordFilter,
+): boolean {
+  if (filter === 'all' || !types || types.length === 0) return true;
+  const set =
+    filter === 'weapons'
+      ? RUNEWORD_WEAPON_TYPES
+      : filter === 'armor'
+        ? RUNEWORD_ARMOR_TYPES
+        : filter === 'shields'
+          ? RUNEWORD_SHIELD_TYPES
+          : RUNEWORD_HELM_TYPES;
+  return types.some((t) => set.has(t));
+}
+
+function formatBaseRequirement(
+  sockets: number,
+  types: string[] | undefined,
+): string {
+  const typeLabel =
+    !types || types.length === 0
+      ? 'Any Base'
+      : types.length === 1
+        ? TYPE_LABELS[types[0]] ?? types[0]
+        : types.map((t) => TYPE_LABELS[t] ?? t).join(' / ');
+  if (!sockets) return typeLabel;
+  return `${sockets}os ${typeLabel}`;
+}
 
 export default function CollectionsScreen() {
   const { db, revision } = useDatabase();
@@ -212,9 +279,27 @@ function RunewordsTabContent({
 }: RunewordsTabContentProps) {
   const [selectedRuneword, setSelectedRuneword] =
     useState<CraftableRuneword | null>(null);
+  const [typeFilter, setTypeFilter] = useState<RunewordFilter>('all');
 
-  const craftable = runewords.filter((rw) => rw.canCraft);
-  const almostReady = runewords.filter(
+  const runewordEntryMap = useMemo(() => {
+    const map = new Map<string, ItemEntry>();
+    for (const e of getItemIndex()) {
+      if (e.category === 'runeword') map.set(e.name, e);
+    }
+    return map;
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      runewords.filter((rw) => {
+        const entry = runewordEntryMap.get(rw.runewordName);
+        return runewordMatchesFilter(entry?.runewordTypes, typeFilter);
+      }),
+    [runewords, typeFilter, runewordEntryMap],
+  );
+
+  const craftable = filtered.filter((rw) => rw.canCraft);
+  const almostReady = filtered.filter(
     (rw) =>
       rw.recipe.length - rw.missingRunes.length > 0 &&
       !rw.canCraft &&
@@ -228,10 +313,50 @@ function RunewordsTabContent({
     setSelectedRuneword(rw);
   };
 
+  const renderCard = (rw: CraftableRuneword, keyPrefix: string) => (
+    <RunewordCard
+      key={`${keyPrefix}-${rw.runewordName}`}
+      runeword={rw}
+      entry={runewordEntryMap.get(rw.runewordName)}
+      onPress={() => handleRunewordPress(rw)}
+    />
+  );
+
   return (
     <>
+      <View style={{ flexShrink: 0 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={rwStyles.filterRow}
+          style={{ flexGrow: 0 }}
+        >
+          {(
+            [
+              ['all', 'All'],
+              ['weapons', 'Weapons'],
+              ['armor', 'Armor'],
+              ['shields', 'Shields'],
+              ['helms', 'Helms'],
+            ] as const
+          ).map(([key, label]) => (
+            <Chip
+              key={key}
+              label={label}
+              active={typeFilter === key}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+                  () => undefined,
+                );
+                setTypeFilter(key);
+              }}
+            />
+          ))}
+        </ScrollView>
+      </View>
+
       <FlatList
-        data={runewords}
+        data={filtered}
         keyExtractor={(rw) => rw.runewordName}
         refreshControl={
           <RefreshControl
@@ -250,13 +375,7 @@ function RunewordsTabContent({
                     accent={colors.ember}
                   />
                 </View>
-                {craftable.map((rw) => (
-                  <RunewordCard
-                    key={`top-${rw.runewordName}`}
-                    runeword={rw}
-                    onPress={() => handleRunewordPress(rw)}
-                  />
-                ))}
+                {craftable.map((rw) => renderCard(rw, 'top'))}
               </View>
             )}
             {almostReady.length > 0 && (
@@ -267,23 +386,12 @@ function RunewordsTabContent({
                     accent={colors.gold}
                   />
                 </View>
-                {almostReady.map((rw) => (
-                  <RunewordCard
-                    key={`ar-${rw.runewordName}`}
-                    runeword={rw}
-                    onPress={() => handleRunewordPress(rw)}
-                  />
-                ))}
+                {almostReady.map((rw) => renderCard(rw, 'ar'))}
               </View>
             )}
           </>
         }
-        renderItem={({ item }) => (
-          <RunewordCard
-            runeword={item}
-            onPress={() => handleRunewordPress(item)}
-          />
-        )}
+        renderItem={({ item }) => renderCard(item, 'rw')}
         contentContainerStyle={rwStyles.list}
       />
 
@@ -302,10 +410,28 @@ function RunewordsTabContent({
 
 interface RunewordCardProps {
   runeword: CraftableRuneword;
+  entry?: ItemEntry;
   onPress: () => void;
 }
 
-function RunewordCard({ runeword, onPress }: RunewordCardProps) {
+function RunewordCard({ runeword, entry, onPress }: RunewordCardProps) {
+  const baseLabel = formatBaseRequirement(
+    runeword.recipe.length,
+    entry?.runewordTypes,
+  );
+
+  // Highlight owned runes in accent color, missing in dim.
+  const remaining = [...runeword.missingRunes];
+  const runeSlots = runeword.recipe.map((rune) => {
+    const idx = remaining.indexOf(rune);
+    if (idx >= 0) {
+      remaining.splice(idx, 1);
+      return { name: rune, owned: false };
+    }
+    return { name: rune, owned: true };
+  });
+  const ownedCount = runeSlots.filter((r) => r.owned).length;
+
   const body = (
     <Pressable
       onPress={onPress}
@@ -321,12 +447,25 @@ function RunewordCard({ runeword, onPress }: RunewordCardProps) {
       >
         {runeword.runewordName}
       </Text>
-      <Text style={rwStyles.recipe}>{runeword.recipe.join(' + ')}</Text>
-      {runeword.missingRunes.length > 0 && (
+      <Text style={rwStyles.base}>{baseLabel}</Text>
+      <View style={rwStyles.recipeRow}>
+        <Text style={rwStyles.recipeLabel}>Recipe: </Text>
+        {runeSlots.map((slot, idx) => (
+          <Text
+            key={`${slot.name}-${idx}`}
+            style={slot.owned ? rwStyles.runeOwned : rwStyles.runeMissing}
+          >
+            {slot.name}
+            {idx < runeSlots.length - 1 ? ' + ' : ''}
+          </Text>
+        ))}
+      </View>
+      {runeword.missingRunes.length > 0 ? (
         <Text style={rwStyles.missing}>
-          Missing: {runeword.missingRunes.join(', ')}
+          Missing: {runeword.missingRunes.join(', ')} ({ownedCount}/
+          {runeSlots.length} owned)
         </Text>
-      )}
+      ) : null}
     </Pressable>
   );
 
@@ -348,6 +487,11 @@ const rwStyles = StyleSheet.create({
   section: {
     marginBottom: spacing.lg,
   },
+  filterRow: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    gap: 6,
+  },
   card: {
     backgroundColor: colors.card,
     borderRadius: 4,
@@ -366,12 +510,36 @@ const rwStyles = StyleSheet.create({
   nameCraftable: {
     color: colors.ember,
   },
-  recipe: {
+  base: {
+    fontFamily: typography.mono,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
+  },
+  recipeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  recipeLabel: {
+    fontFamily: typography.mono,
+    fontSize: 11,
+    letterSpacing: 1,
+    color: colors.textMuted,
+  },
+  runeOwned: {
     fontFamily: typography.monoBold,
     fontSize: 12,
     letterSpacing: 1.2,
     color: colors.rune,
-    marginBottom: spacing.xs,
+  },
+  runeMissing: {
+    fontFamily: typography.monoBold,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    color: colors.textDim,
   },
   missing: {
     fontFamily: typography.mono,

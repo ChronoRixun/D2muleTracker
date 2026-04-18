@@ -18,6 +18,8 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ItemRow } from '@/components/ItemRow';
+import { TagInput } from '@/components/TagInput';
+import { TradeExportModal } from '@/components/TradeExportModal';
 import { Chip } from '@/components/ember/Chip';
 import { EmberBG } from '@/components/ember/EmberBG';
 import { EmberBtn } from '@/components/ember/EmberBtn';
@@ -25,14 +27,18 @@ import { FAB } from '@/components/ember/FAB';
 import { RarityDot } from '@/components/ember/RarityDot';
 import { SectionHead } from '@/components/ember/SectionHead';
 import {
+  bulkAddTag,
+  bulkRemoveTag,
   deleteItem,
   getContainer,
+  getItemTags,
   listContainers,
   listItemsByContainer,
   updateContainer,
   updateItem,
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
+import { useAllTags, useItemTagsState } from '@/hooks/useTags';
 import { getItemById } from '@/lib/itemIndex';
 import { useSettings } from '@/lib/settings';
 import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
@@ -72,10 +78,14 @@ export default function ContainerDetailScreen() {
   const [editContainer, setEditContainer] = useState(false);
   const [sortBy, setSortBy] = useState<'newest' | 'name' | 'category'>('newest');
   const [filterCategory, setFilterCategory] = useState<ItemCategory | null>(null);
+  const [filterTag, setFilterTag] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkMoveTarget, setBulkMoveTarget] = useState<string[] | null>(null);
+  const [bulkTagTarget, setBulkTagTarget] = useState<string[] | null>(null);
+  const [tradeExportOpen, setTradeExportOpen] = useState(false);
+  const [tagsByItem, setTagsByItem] = useState<Record<string, string[]>>({});
 
   const toggleSelect = (itemId: string) => {
     setSelectedIds((prev) => {
@@ -92,6 +102,13 @@ export default function ContainerDetailScreen() {
     setContainer(c);
     const list = await listItemsByContainer(db, id);
     setItems(list);
+    const tagMap: Record<string, string[]> = {};
+    await Promise.all(
+      list.map(async (item) => {
+        tagMap[item.id] = await getItemTags(db, item.id);
+      }),
+    );
+    setTagsByItem(tagMap);
   }, [db, id]);
 
   useEffect(() => {
@@ -105,6 +122,10 @@ export default function ContainerDetailScreen() {
 
     if (filterCategory) {
       list = list.filter((x) => x.entry.category === filterCategory);
+    }
+
+    if (filterTag) {
+      list = list.filter((x) => tagsByItem[x.item.id]?.includes(filterTag));
     }
 
     switch (sortBy) {
@@ -125,7 +146,15 @@ export default function ContainerDetailScreen() {
     }
 
     return list;
-  }, [items, sortBy, filterCategory]);
+  }, [items, sortBy, filterCategory, filterTag, tagsByItem]);
+
+  const containerTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const tags of Object.values(tagsByItem)) {
+      for (const t of tags) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [tagsByItem]);
 
   const categoryCounts = useMemo(() => {
     const counts: Partial<Record<ItemCategory, number>> = {};
@@ -298,6 +327,15 @@ export default function ContainerDetailScreen() {
                 {selectMode ? 'Done' : 'Select'}
               </EmberBtn>
             ) : null}
+            {items.length > 0 ? (
+              <EmberBtn
+                size="sm"
+                variant="ghost"
+                onPress={() => setTradeExportOpen(true)}
+              >
+                Trade
+              </EmberBtn>
+            ) : null}
             <EmberBtn size="sm" variant="ghost" onPress={handleShare}>
               Share
             </EmberBtn>
@@ -371,6 +409,31 @@ export default function ContainerDetailScreen() {
               </>
             ) : null}
           </ScrollView>
+          {containerTags.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sortRow}
+              style={{ flexGrow: 0 }}
+            >
+              <Chip
+                label="All Tags"
+                active={!filterTag}
+                onPress={() => setFilterTag(null)}
+              />
+              {containerTags.map((tag) => (
+                <Chip
+                  key={tag}
+                  label={tag}
+                  color={colors.gold}
+                  active={filterTag === tag}
+                  onPress={() =>
+                    setFilterTag(filterTag === tag ? null : tag)
+                  }
+                />
+              ))}
+            </ScrollView>
+          ) : null}
         </View>
       ) : null}
 
@@ -458,6 +521,8 @@ export default function ContainerDetailScreen() {
                       notes={row.item.notes}
                       quantity={row.item.quantity}
                       sockets={row.item.sockets}
+                      tags={tagsByItem[row.item.id]}
+                      activeTags={filterTag ? [filterTag] : undefined}
                     />
                   </View>
                 </Pressable>
@@ -467,6 +532,11 @@ export default function ContainerDetailScreen() {
               <SwipeableItemRow
                 entry={row.entry}
                 item={row.item}
+                tags={tagsByItem[row.item.id]}
+                activeTag={filterTag}
+                onTagPress={(t) =>
+                  setFilterTag((cur) => (cur === t ? null : t))
+                }
                 onPress={() => setEditTarget(row.item)}
                 onDelete={() => handleSwipeDelete(row.item)}
               />
@@ -482,6 +552,12 @@ export default function ContainerDetailScreen() {
             onPress={() => setBulkMoveTarget([...selectedIds])}
           >
             <Text style={styles.bulkBtnText}>Move {selectedIds.size}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.bulkTagBtn}
+            onPress={() => setBulkTagTarget([...selectedIds])}
+          >
+            <Text style={styles.bulkBtnText}>Tag {selectedIds.size}</Text>
           </Pressable>
           <Pressable
             style={styles.bulkDeleteBtn}
@@ -611,6 +687,27 @@ export default function ContainerDetailScreen() {
           reload();
         }}
         />
+
+      <BulkTagModal
+        itemIds={bulkTagTarget}
+        tagsByItem={tagsByItem}
+        onClose={() => setBulkTagTarget(null)}
+        onDone={async () => {
+          setBulkTagTarget(null);
+          setSelectedIds(new Set());
+          setSelectMode(false);
+          bumpRevision();
+          await reload();
+        }}
+      />
+
+      <TradeExportModal
+        visible={tradeExportOpen}
+        container={container}
+        items={items}
+        tagsByItem={tagsByItem}
+        onClose={() => setTradeExportOpen(false)}
+      />
       </SafeAreaView>
     </View>
   );
@@ -621,11 +718,17 @@ export default function ContainerDetailScreen() {
 function SwipeableItemRow({
   entry,
   item,
+  tags,
+  activeTag,
+  onTagPress,
   onPress,
   onDelete,
 }: {
   entry: ItemEntry;
   item: ItemRecord;
+  tags?: string[];
+  activeTag?: string | null;
+  onTagPress?: (tag: string) => void;
   onPress: () => void;
   onDelete: () => void;
 }) {
@@ -647,6 +750,9 @@ function SwipeableItemRow({
         notes={item.notes}
         quantity={item.quantity}
         sockets={item.sockets}
+        tags={tags}
+        activeTags={activeTag ? [activeTag] : undefined}
+        onTagPress={onTagPress}
         onPress={onPress}
       />
     </ReanimatedSwipeable>
@@ -863,6 +969,10 @@ function EditItemModal({
   const [location, setLocation] = useState<ItemLocation>(null);
   const [sockets, setSockets] = useState<number | null>(null);
   const entry = target ? getItemById(target.itemIndexId) : null;
+  const { tags, add: addTag, remove: removeTag } = useItemTagsState(
+    target?.id,
+  );
+  const { tags: knownTags } = useAllTags();
 
   useEffect(() => {
     if (target) {
@@ -992,6 +1102,20 @@ function EditItemModal({
               </Pressable>
             ))}
           </View>
+
+          <Text style={styles.label}>Tags</Text>
+          <TagInput
+            value={tags}
+            onChange={(next) => {
+              const prev = tags;
+              const added = next.filter((t) => !prev.includes(t));
+              const removed = prev.filter((t) => !next.includes(t));
+              for (const t of added) addTag(t);
+              for (const t of removed) removeTag(t);
+            }}
+            knownTags={knownTags}
+            placeholder="e.g. For Trade, God Roll"
+          />
 
           <View style={styles.sheetRow}>
             <Pressable
@@ -1169,6 +1293,134 @@ function BulkMoveModal({
           </ScrollView>
           <Pressable style={styles.cancelBtn} onPress={onClose}>
             <Text style={styles.ghostBtnText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ---- Bulk tag modal ------------------------------------------------------
+
+interface BulkTagModalProps {
+  itemIds: string[] | null;
+  tagsByItem: Record<string, string[]>;
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}
+
+function BulkTagModal({
+  itemIds,
+  tagsByItem,
+  onClose,
+  onDone,
+}: BulkTagModalProps) {
+  const { db } = useDatabase();
+  const { tags: knownTags } = useAllTags();
+  const [draft, setDraft] = useState('');
+
+  const count = itemIds?.length ?? 0;
+
+  const commonTags = useMemo(() => {
+    if (!itemIds || itemIds.length === 0) return [];
+    const first = tagsByItem[itemIds[0]] ?? [];
+    return first.filter((t) =>
+      itemIds.every((id) => tagsByItem[id]?.includes(t)),
+    );
+  }, [itemIds, tagsByItem]);
+
+  const suggestions = useMemo(() => {
+    const q = draft.trim().toLowerCase();
+    const pool = knownTags;
+    if (!q) return pool.slice(0, 8);
+    return pool.filter((t) => t.toLowerCase().includes(q)).slice(0, 8);
+  }, [draft, knownTags]);
+
+  const applyAdd = async (tag: string) => {
+    const t = tag.trim();
+    if (!t || !itemIds) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => undefined,
+    );
+    await bulkAddTag(db, itemIds, t);
+    setDraft('');
+    await onDone();
+  };
+
+  const applyRemove = async (tag: string) => {
+    if (!itemIds) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => undefined,
+    );
+    await bulkRemoveTag(db, itemIds, tag);
+    await onDone();
+  };
+
+  return (
+    <Modal
+      visible={!!itemIds}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalSheet}>
+          <Text style={styles.sheetTitle}>
+            Tag {count} item{count === 1 ? '' : 's'}
+          </Text>
+
+          <Text style={styles.label}>Add tag</Text>
+          <TextInput
+            style={styles.input}
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={() => applyAdd(draft)}
+            placeholder="e.g. For Trade"
+            placeholderTextColor={colors.textDim}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="done"
+          />
+          {suggestions.length > 0 ? (
+            <View style={styles.suggestionRow}>
+              {suggestions.map((t) => (
+                <Chip
+                  key={t}
+                  label={t}
+                  size="sm"
+                  color={colors.gold}
+                  onPress={() => applyAdd(t)}
+                />
+              ))}
+            </View>
+          ) : null}
+          {draft.trim() ? (
+            <View style={{ marginTop: spacing.sm }}>
+              <EmberBtn size="sm" onPress={() => applyAdd(draft)}>
+                Apply “{draft.trim()}” to all
+              </EmberBtn>
+            </View>
+          ) : null}
+
+          {commonTags.length > 0 ? (
+            <>
+              <Text style={styles.label}>Remove shared tag</Text>
+              <View style={styles.suggestionRow}>
+                {commonTags.map((t) => (
+                  <Pressable
+                    key={t}
+                    onPress={() => applyRemove(t)}
+                    style={styles.removeTagChip}
+                  >
+                    <Text style={styles.removeTagText}>{t} ×</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          <Pressable style={styles.cancelBtn} onPress={onClose}>
+            <Text style={styles.ghostBtnText}>Close</Text>
           </Pressable>
         </View>
       </View>
@@ -1422,6 +1674,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 4,
   },
+  bulkTagBtn: {
+    flex: 1,
+    backgroundColor: colors.gold,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    elevation: 4,
+  },
   bulkDeleteBtn: {
     flex: 1,
     backgroundColor: colors.danger,
@@ -1621,5 +1881,26 @@ const styles = StyleSheet.create({
   },
   pressedDim: {
     opacity: 0.7,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  removeTagChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    backgroundColor: 'transparent',
+  },
+  removeTagText: {
+    color: colors.danger,
+    fontFamily: typography.monoBold,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
 });

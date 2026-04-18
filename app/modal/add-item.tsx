@@ -17,8 +17,10 @@ import { Chip } from '@/components/ember/Chip';
 import { EmberBG } from '@/components/ember/EmberBG';
 import { EmberBtn } from '@/components/ember/EmberBtn';
 import { ItemAutocomplete } from '@/components/ItemAutocomplete';
-import { createItem, listItemsByContainer } from '@/db/queries';
+import { TagInput } from '@/components/TagInput';
+import { addTagToItem, createItem, listItemsByContainer } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
+import { useAllTags } from '@/hooks/useTags';
 import { getItemById } from '@/lib/itemIndex';
 import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
 import type { ItemEntry, ItemLocation } from '@/lib/types';
@@ -35,6 +37,8 @@ export default function AddItemModal() {
   const [quantity, setQuantity] = useState('1');
   const [location, setLocation] = useState<ItemLocation>(null);
   const [sockets, setSockets] = useState<number | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
+  const { tags: knownTags } = useAllTags();
 
   const resetForm = () => {
     setSelected(null);
@@ -42,11 +46,12 @@ export default function AddItemModal() {
     setQuantity('1');
     setLocation(null);
     setSockets(null);
+    setTags([]);
   };
 
   const persist = async () => {
     if (!selected || !containerId) return;
-    await createItem(db, {
+    const item = await createItem(db, {
       containerId,
       itemIndexId: selected.id,
       notes: notes.trim() || null,
@@ -54,6 +59,9 @@ export default function AddItemModal() {
       location,
       sockets: selected.category === 'base' ? sockets : null,
     });
+    for (const tag of tags) {
+      await addTagToItem(db, item.id, tag);
+    }
     bumpRevision();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
       () => undefined,
@@ -225,6 +233,14 @@ export default function AddItemModal() {
               />
             ))}
           </View>
+
+          <Text style={styles.label}>Tags</Text>
+          <TagInput
+            value={tags}
+            onChange={setTags}
+            knownTags={knownTags}
+            placeholder="e.g. For Trade, God Roll"
+          />
         </ScrollView>
 
         <View style={styles.footer}>
