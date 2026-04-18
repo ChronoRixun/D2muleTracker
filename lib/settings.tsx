@@ -23,11 +23,13 @@ export type Density = 'comfortable' | 'dense';
 export interface Settings {
   motion: Motion;
   density: Density;
+  tutorialCompleted: boolean;
 }
 
 const DEFAULTS: Settings = {
   motion: 'subtle',
   density: 'comfortable',
+  tutorialCompleted: false,
 };
 
 const SETTINGS_FILENAME = 'ember-settings.json';
@@ -36,6 +38,7 @@ interface SettingsContextValue extends Settings {
   loaded: boolean;
   setMotion: (m: Motion) => void;
   setDensity: (d: Density) => void;
+  setTutorialCompleted: (completed: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -49,6 +52,7 @@ function readSettings(): Settings {
     return {
       motion: parsed.motion === 'full' ? 'full' : 'subtle',
       density: parsed.density === 'dense' ? 'dense' : 'comfortable',
+      tutorialCompleted: parsed.tutorialCompleted === true,
     };
   } catch {
     return DEFAULTS;
@@ -88,6 +92,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       loaded,
       setMotion: (motion) => update({ motion }),
       setDensity: (density) => update({ density }),
+      setTutorialCompleted: (tutorialCompleted) => update({ tutorialCompleted }),
     }),
     [state, loaded, update],
   );

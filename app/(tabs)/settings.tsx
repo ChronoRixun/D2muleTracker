@@ -45,7 +45,8 @@ const REGION_OPTIONS: Array<{ value: Region; label: string }> = [
 
 export default function SettingsScreen() {
   const { db, bumpRevision, revision } = useDatabase();
-  const { motion, density, setMotion, setDensity } = useSettings();
+  const { motion, density, setMotion, setDensity, setTutorialCompleted } =
+    useSettings();
   const [realms, setRealms] = useState<Realm[]>([]);
   const [editing, setEditing] = useState<Realm | 'new' | null>(null);
   const [importText, setImportText] = useState('');
@@ -231,6 +232,21 @@ export default function SettingsScreen() {
               }}
             >
               Rate This App
+            </EmberBtn>
+          </View>
+          <View style={{ marginTop: spacing.sm }}>
+            <EmberBtn
+              variant="ghost"
+              full
+              onPress={() => {
+                setTutorialCompleted(false);
+                Alert.alert(
+                  'Tutorial Reset',
+                  'The tutorial will show the next time you open the app.',
+                );
+              }}
+            >
+              Replay Tutorial
             </EmberBtn>
           </View>
         </ScrollView>

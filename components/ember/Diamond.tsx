@@ -6,12 +6,13 @@
 import { View, type ViewStyle } from 'react-native';
 import { colors } from '@/lib/theme';
 
-type Size = 'sm' | 'md' | 'lg' | number;
+type Size = 'sm' | 'md' | 'lg' | 'xl' | number;
 
 const SIZE_MAP: Record<Exclude<Size, number>, number> = {
   sm: 6,
   md: 10,
   lg: 14,
+  xl: 128,
 };
 
 interface Props {

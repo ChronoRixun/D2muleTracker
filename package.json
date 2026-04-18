@@ -8,6 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:item-index": "tsx scripts/build-item-index.ts",
+    "generate:icons": "tsx scripts/generate-app-icon.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
