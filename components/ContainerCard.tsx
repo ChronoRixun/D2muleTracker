@@ -2,7 +2,8 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
-import { colors, fontSize, radius, spacing } from '@/lib/theme';
+import { Diamond } from '@/components/ember/Diamond';
+import { colors, typography } from '@/lib/theme';
 import type { Container } from '@/lib/types';
 
 const CLASS_GLYPH: Record<string, string> = {
@@ -32,11 +33,10 @@ export function ContainerCard({
   onArchive,
 }: Props) {
   const isStash = container.type === 'shared_stash';
-  const badge = isStash
-    ? 'STH'
-    : container.class
-      ? CLASS_GLYPH[container.class] ?? '?'
-      : '?';
+  const accent = isStash ? colors.gold : colors.ember;
+  const meta = isStash
+    ? 'SHARED STASH'
+    : `${(CLASS_GLYPH[container.class ?? ''] ?? '???').toUpperCase()} · LV ${container.level ?? '?'}`;
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
@@ -47,7 +47,7 @@ export function ContainerCard({
 
   const renderRightActions = () => (
     <Pressable style={styles.archiveBtn} onPress={onArchive}>
-      <Text style={styles.archiveText}>Archive</Text>
+      <Text style={styles.archiveText}>ARCHIVE</Text>
     </Pressable>
   );
 
@@ -55,26 +55,25 @@ export function ContainerCard({
     <Pressable
       onPress={handlePress}
       onLongPress={onLongPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        { borderColor: isStash ? colors.goldDim : colors.borderHi },
+        pressed && styles.pressed,
+      ]}
     >
-      <View style={styles.glyph}>
-        <Text style={styles.glyphText}>{badge}</Text>
-      </View>
+      <Diamond size="md" color={accent} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {container.name}
         </Text>
-        <Text style={styles.meta}>
-          {isStash
-            ? 'Shared Stash'
-            : `${container.class ?? 'Unknown'} · Lv ${container.level ?? '?'}`}
-        </Text>
+        <Text style={styles.meta}>{meta}</Text>
       </View>
       <View style={styles.count}>
-        <Text style={styles.countNum}>{itemCount}</Text>
-        <Text style={styles.countLabel}>items</Text>
+        <Text style={[styles.countNum, { color: accent }]}>
+          {String(itemCount).padStart(2, '0')}
+        </Text>
+        <Text style={styles.countLabel}>ITEMS</Text>
       </View>
-      <Text style={styles.moreHint}>⋯</Text>
     </Pressable>
   );
 
@@ -98,76 +97,63 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.xs,
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginHorizontal: 20,
+    marginVertical: 4,
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   pressed: {
-    opacity: 0.75,
-  },
-  glyph: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  glyphText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
+    opacity: 0.82,
+    backgroundColor: colors.cardHi,
   },
   body: {
     flex: 1,
+    gap: 2,
   },
   name: {
     color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
+    fontFamily: typography.displaySemi,
+    fontSize: 16,
+    letterSpacing: 1.5,
   },
   meta: {
     color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: 2,
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 1.5,
   },
   count: {
     alignItems: 'flex-end',
-    minWidth: 48,
   },
   countNum: {
-    color: colors.primary,
-    fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontFamily: typography.monoBold,
+    fontSize: 16,
+    letterSpacing: 1,
   },
   countLabel: {
     color: colors.textDim,
-    fontSize: fontSize.xs,
-  },
-  moreHint: {
-    color: colors.textDim,
-    fontSize: fontSize.md,
-    marginLeft: spacing.xs,
+    fontFamily: typography.mono,
+    fontSize: 9,
+    letterSpacing: 2,
+    marginTop: 2,
   },
   archiveBtn: {
-    backgroundColor: '#b07d20',
+    backgroundColor: colors.emberDim,
     justifyContent: 'center',
     alignItems: 'center',
     width: 90,
-    borderRadius: radius.md,
-    marginVertical: spacing.xs,
-    marginRight: spacing.lg,
+    borderRadius: 4,
+    marginVertical: 4,
+    marginRight: 20,
   },
   archiveText: {
     color: '#fff',
-    fontWeight: '700',
-    fontSize: fontSize.sm,
+    fontFamily: typography.monoBold,
+    letterSpacing: 2,
+    fontSize: 11,
   },
 });

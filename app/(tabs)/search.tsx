@@ -12,12 +12,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
+import { Chip } from '@/components/ember/Chip';
+import { EIcon } from '@/components/ember/EIcon';
+import { EmberBG } from '@/components/ember/EmberBG';
+import { SectionHead } from '@/components/ember/SectionHead';
 import { ItemTypeIcon } from '@/components/ItemTypeIcon';
 import { RealmTag } from '@/components/RealmTag';
 import { findItemsByIndexIds, listRealms, searchNotes } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { getItemById, searchItems } from '@/lib/itemIndex';
-import { categoryColor, colors, fontSize, radius, spacing } from '@/lib/theme';
+import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
 import type { ItemCategory, ItemEntry, Realm, SearchHit } from '@/lib/types';
 
 const CATEGORY_OPTIONS: ItemCategory[] = [
@@ -143,74 +147,66 @@ export default function SearchScreen() {
   }, [hits, noteHits, categoryFilter]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <TextInput
-        style={styles.input}
-        autoFocus
-        autoCapitalize="none"
-        autoCorrect={false}
-        placeholder="Search items or notes (e.g. shako, enigma, 40FCR)…"
-        placeholderTextColor={colors.textDim}
-        value={query}
-        onChangeText={setQuery}
-      />
+    <View style={styles.container}>
+      <EmberBG />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <SectionHead eyebrow="Divine Gaze" title="SEEK" />
+        <View style={styles.searchWrap}>
+          <View style={styles.searchIcon}>
+            <EIcon name="eye" size={18} color={colors.ember} stroke={1.4} />
+          </View>
+          <TextInput
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Shako, enigma, 40FCR…"
+            placeholderTextColor={colors.textDim}
+            value={query}
+            onChangeText={setQuery}
+          />
+        </View>
 
-      <View style={{ flexShrink: 0 }}>
-        {realms.length > 1 ? (
+        <View style={{ flexShrink: 0 }}>
+          {realms.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+              style={{ flexGrow: 0 }}
+            >
+              <Chip
+                label="All realms"
+                active={realmFilter === 'all'}
+                onPress={() => setRealmFilter('all')}
+              />
+              {realms.map((r) => (
+                <Chip
+                  key={r.id}
+                  label={r.name}
+                  active={realmFilter === r.id}
+                  onPress={() => setRealmFilter(r.id)}
+                />
+              ))}
+            </ScrollView>
+          ) : null}
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterRow}
             style={{ flexGrow: 0 }}
           >
-            <FilterChip
-              label="All realms"
-              active={realmFilter === 'all'}
-              onPress={() => setRealmFilter('all')}
-            />
-            {realms.map((r) => (
-              <FilterChip
-                key={r.id}
-                label={r.name}
-                active={realmFilter === r.id}
-                onPress={() => setRealmFilter(r.id)}
+            {CATEGORY_OPTIONS.map((cat) => (
+              <Chip
+                key={cat}
+                label={cat}
+                rarity={cat}
+                active={categoryFilter.has(cat)}
+                onPress={() => toggleCategory(cat)}
               />
             ))}
           </ScrollView>
-        ) : null}
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-          style={{ flexGrow: 0 }}
-        >
-          {CATEGORY_OPTIONS.map((cat) => {
-            const active = categoryFilter.has(cat);
-            const color = categoryColor(cat);
-            return (
-              <Pressable
-                key={cat}
-                onPress={() => toggleCategory(cat)}
-                style={[
-                  styles.catChip,
-                  { borderColor: color },
-                  active && { backgroundColor: color },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.catChipText,
-                    { color: active ? colors.bg : color },
-                  ]}
-                >
-                  {cat}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+        </View>
 
       {debounced.length < 2 ? (
         <View style={styles.hintWrap}>
@@ -281,84 +277,44 @@ export default function SearchScreen() {
             </Pressable>
           )}
         />
-      )}
-    </SafeAreaView>
-  );
-}
-
-function FilterChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, active && styles.chipActive]}
-    >
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  input: {
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.card,
-    color: colors.text,
-    fontSize: fontSize.md,
-    borderRadius: radius.md,
+    backgroundColor: colors.bgSoft,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderHi,
+    paddingHorizontal: spacing.md,
+    shadowColor: colors.ember,
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    color: colors.text,
+    fontFamily: typography.body,
+    fontSize: fontSize.md,
   },
   filterRow: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
-    gap: spacing.xs,
-  },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: spacing.xs,
-  },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-  },
-  chipTextActive: {
-    color: colors.bg,
-    fontWeight: '700',
-  },
-  catChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    marginRight: spacing.xs,
-  },
-  catChipText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    textTransform: 'capitalize',
+    gap: 6,
   },
 
   hintWrap: {
@@ -367,9 +323,11 @@ const styles = StyleSheet.create({
   },
   hint: {
     color: colors.textMuted,
-    fontSize: fontSize.sm,
+    fontFamily: typography.hand,
+    fontSize: fontSize.md,
+    fontStyle: 'italic',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
   },
 
   hit: {
@@ -377,10 +335,10 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginVertical: 3,
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: 4,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderHi,
   },
   colorBar: { width: 3 },
   iconWrap: {
@@ -398,8 +356,9 @@ const styles = StyleSheet.create({
   },
   hitName: {
     flex: 1,
+    fontFamily: typography.displaySemi,
     fontSize: fontSize.md,
-    fontWeight: '600',
+    letterSpacing: 1,
   },
   hitLoc: {
     flexDirection: 'row',
@@ -411,11 +370,13 @@ const styles = StyleSheet.create({
   hitContainer: {
     flex: 1,
     color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '500',
+    fontFamily: typography.mono,
+    fontSize: 11,
+    letterSpacing: 1,
   },
   hitNotes: {
     color: colors.textMuted,
+    fontFamily: typography.hand,
     fontSize: fontSize.sm,
     marginTop: spacing.xs,
     fontStyle: 'italic',

@@ -13,11 +13,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
+import { Chip } from '@/components/ember/Chip';
+import { EmberBG } from '@/components/ember/EmberBG';
+import { EmberBtn } from '@/components/ember/EmberBtn';
 import { ItemAutocomplete } from '@/components/ItemAutocomplete';
 import { createItem, listItemsByContainer } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { getItemById } from '@/lib/itemIndex';
-import { categoryColor, colors, fontSize, radius, spacing } from '@/lib/theme';
+import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
 import type { ItemEntry, ItemLocation } from '@/lib/types';
 
 const LOCATIONS: ItemLocation[] = ['inventory', 'equipped', 'merc', 'stash'];
@@ -95,19 +98,27 @@ export default function AddItemModal() {
 
   if (!selected) {
     return (
-      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-        <Stack.Screen options={{ title: 'Add Item' }} />
-        <ItemAutocomplete onSelect={setSelected} />
-      </SafeAreaView>
+      <View style={styles.container}>
+        <EmberBG />
+        <SafeAreaView
+          style={{ flex: 1 }}
+          edges={['left', 'right', 'bottom']}
+        >
+          <Stack.Screen options={{ title: 'Add Item' }} />
+          <ItemAutocomplete onSelect={setSelected} />
+        </SafeAreaView>
+      </View>
     );
   }
 
   const color = categoryColor(selected.category);
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen options={{ title: 'Add Item' }} />
-      <ScrollView contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+      <EmberBG />
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={{ title: 'Add Item' }} />
+        <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.selected, { borderColor: color }]}>
           <View style={styles.selectedHead}>
             <Text style={[styles.selectedName, { color }]}>{selected.name}</Text>
@@ -198,55 +209,43 @@ export default function AddItemModal() {
           onChangeText={setQuantity}
         />
 
-        <Text style={styles.label}>Location</Text>
-        <View style={styles.segmentWrap}>
-          <Pressable
-            style={[styles.segment, !location && styles.segmentActive]}
-            onPress={() => setLocation(null)}
-          >
-            <Text
-              style={[
-                styles.segmentText,
-                !location && styles.segmentTextActive,
-              ]}
-            >
-              unspecified
-            </Text>
-          </Pressable>
-          {LOCATIONS.map((loc) => (
-            <Pressable
-              key={loc}
-              style={[
-                styles.segment,
-                location === loc && styles.segmentActive,
-              ]}
-              onPress={() => setLocation(loc)}
-            >
-              <Text
-                style={[
-                  styles.segmentText,
-                  location === loc && styles.segmentTextActive,
-                ]}
-              >
-                {loc}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+          <Text style={styles.label}>Location</Text>
+          <View style={styles.segmentWrap}>
+            <Chip
+              label="unspecified"
+              active={!location}
+              onPress={() => setLocation(null)}
+            />
+            {LOCATIONS.map((loc) => (
+              <Chip
+                key={loc}
+                label={String(loc)}
+                active={location === loc}
+                onPress={() => setLocation(loc)}
+              />
+            ))}
+          </View>
+        </ScrollView>
 
-      <View style={styles.footer}>
-        <Pressable style={styles.ghostBtn} onPress={() => router.back()}>
-          <Text style={styles.ghostBtnText}>Cancel</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryBtn} onPress={saveAndAddAnother}>
-          <Text style={styles.secondaryBtnText}>Save & Add Another</Text>
-        </Pressable>
-        <Pressable style={styles.primaryBtn} onPress={save}>
-          <Text style={styles.primaryBtnText}>Save</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+        <View style={styles.footer}>
+          <View style={{ flex: 1 }}>
+            <EmberBtn variant="outline" full onPress={() => router.back()}>
+              Cancel
+            </EmberBtn>
+          </View>
+          <View style={{ flex: 1 }}>
+            <EmberBtn variant="ghost" full onPress={saveAndAddAnother}>
+              + Another
+            </EmberBtn>
+          </View>
+          <View style={{ flex: 1 }}>
+            <EmberBtn full onPress={save}>
+              Save
+            </EmberBtn>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -255,9 +254,9 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg },
 
   selected: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardHi,
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 4,
     borderWidth: 1,
     marginBottom: spacing.md,
   },
@@ -269,12 +268,15 @@ const styles = StyleSheet.create({
   },
   selectedName: {
     flex: 1,
-    fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontFamily: typography.displaySemi,
+    fontSize: 18,
+    letterSpacing: 2,
   },
   selectedBase: {
     color: colors.textMuted,
-    fontSize: fontSize.sm,
+    fontFamily: typography.mono,
+    fontSize: 11,
+    letterSpacing: 1,
     marginTop: 4,
   },
   changeBtn: {
@@ -282,24 +284,28 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   changeBtnText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
+    color: colors.ember,
+    fontFamily: typography.monoBold,
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
 
   label: {
     color: colors.textMuted,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   input: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.bgSoft,
     color: colors.text,
     fontSize: fontSize.md,
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.border,
   },

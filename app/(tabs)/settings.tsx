@@ -16,6 +16,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Chip } from '@/components/ember/Chip';
+import { EmberBG } from '@/components/ember/EmberBG';
+import { EmberBtn } from '@/components/ember/EmberBtn';
+import { Rule } from '@/components/ember/Rule';
+import { SectionHead } from '@/components/ember/SectionHead';
 import { RealmTag } from '@/components/RealmTag';
 import {
   BackupPayload,
@@ -27,7 +32,8 @@ import {
   updateRealm,
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
-import { colors, fontSize, radius, spacing } from '@/lib/theme';
+import { useSettings } from '@/lib/settings';
+import { colors, fontSize, radius, spacing, typography } from '@/lib/theme';
 import type { Era, Ladder, Mode, Realm, Region } from '@/lib/types';
 
 const REGION_OPTIONS: Array<{ value: Region; label: string }> = [
@@ -39,6 +45,7 @@ const REGION_OPTIONS: Array<{ value: Region; label: string }> = [
 
 export default function SettingsScreen() {
   const { db, bumpRevision, revision } = useDatabase();
+  const { motion, density, setMotion, setDensity } = useSettings();
   const [realms, setRealms] = useState<Realm[]>([]);
   const [editing, setEditing] = useState<Realm | 'new' | null>(null);
   const [importText, setImportText] = useState('');
@@ -106,64 +113,127 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}>
-        <Text style={styles.sectionTitle}>Realms</Text>
-        {realms.length === 0 ? (
-          <Text style={styles.hint}>No realms yet.</Text>
-        ) : (
-          realms.map((r) => (
-            <Pressable
-              key={r.id}
-              style={styles.realmRow}
-              onPress={() => setEditing(r)}
-            >
-              <RealmTag realm={r} />
-              <Text style={styles.chev}>›</Text>
-            </Pressable>
-          ))
-        )}
-        <Pressable style={styles.ghostBtn} onPress={() => setEditing('new')}>
-          <Text style={styles.ghostBtnText}>+ Add Realm</Text>
-        </Pressable>
-
-        <Text style={styles.sectionTitle}>Data</Text>
-        <Pressable style={styles.rowBtn} onPress={handleExport}>
-          <Text style={styles.rowBtnText}>Export (Share JSON)</Text>
-        </Pressable>
-        <Pressable style={styles.rowBtn} onPress={handleWriteBackupFile}>
-          <Text style={styles.rowBtnText}>Save Backup File</Text>
-        </Pressable>
-        <Pressable style={styles.rowBtn} onPress={() => setImportVisible(true)}>
-          <Text style={styles.rowBtnText}>Import JSON…</Text>
-        </Pressable>
-
-        <Text style={styles.sectionTitle}>About</Text>
-        <Text style={styles.about}>
-          D2 Mule Tracker v{Constants.expoConfig?.version ?? '1.0.0'}{'\n'}
-          Offline inventory catalog for Diablo 2 Resurrected.{'\n\n'}
-          Item database sourced from blizzhackers/d2data (MIT license).{'\n'}
-          github.com/blizzhackers/d2data{'\n\n'}
-          Item type icons by Lorc, Delapouite, and contributors{'\n'}
-          from game-icons.net, licensed under CC BY 3.0.{'\n'}
-          Icons have been recolored to match the app theme.{'\n\n'}
-          Built with Expo + React Native.
-        </Text>
-        <Pressable
-          style={[styles.rowBtn, { marginTop: spacing.md }]}
-          onPress={async () => {
-            try {
-              if (await StoreReview.hasAction()) {
-                await StoreReview.requestReview();
-              }
-            } catch {
-              // Ignore: review prompt unavailable on this platform.
-            }
-          }}
+    <View style={styles.container}>
+      <EmberBG />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <SectionHead eyebrow="The Anvil" title="FORGE" />
+        <ScrollView
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
         >
-          <Text style={styles.rowBtnText}>Rate This App</Text>
-        </Pressable>
-      </ScrollView>
+          <View style={{ marginBottom: spacing.md }}>
+            <Rule label="Motion" accent={colors.ember} />
+          </View>
+          <View style={styles.chipWrap}>
+            <Chip
+              label="Subtle"
+              active={motion === 'subtle'}
+              onPress={() => setMotion('subtle')}
+            />
+            <Chip
+              label="Full Hellforge"
+              active={motion === 'full'}
+              onPress={() => setMotion('full')}
+              color={colors.ember}
+            />
+          </View>
+          <Text style={styles.hintItalic}>
+            {motion === 'full'
+              ? 'Embers rise. Glyphs pulse. The forge breathes.'
+              : 'A still, sleeping ember. Performance first.'}
+          </Text>
+
+          <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
+            <Rule label="Density" accent={colors.ember} />
+          </View>
+          <View style={styles.chipWrap}>
+            <Chip
+              label="Comfortable"
+              active={density === 'comfortable'}
+              onPress={() => setDensity('comfortable')}
+            />
+            <Chip
+              label="Dense"
+              active={density === 'dense'}
+              onPress={() => setDensity('dense')}
+            />
+          </View>
+
+          <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
+            <Rule label="Realms" accent={colors.gold} />
+          </View>
+          {realms.length === 0 ? (
+            <Text style={styles.hint}>No realms yet.</Text>
+          ) : (
+            realms.map((r) => (
+              <Pressable
+                key={r.id}
+                style={styles.realmRow}
+                onPress={() => setEditing(r)}
+              >
+                <RealmTag realm={r} />
+                <Text style={styles.chev}>›</Text>
+              </Pressable>
+            ))
+          )}
+          <View style={{ marginTop: spacing.sm }}>
+            <EmberBtn variant="ghost" full onPress={() => setEditing('new')}>
+              + Add Realm
+            </EmberBtn>
+          </View>
+
+          <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
+            <Rule label="Data" accent={colors.gold} />
+          </View>
+          <View style={{ gap: spacing.sm }}>
+            <EmberBtn variant="outline" full onPress={handleExport}>
+              Export (Share JSON)
+            </EmberBtn>
+            <EmberBtn variant="outline" full onPress={handleWriteBackupFile}>
+              Save Backup File
+            </EmberBtn>
+            <EmberBtn
+              variant="outline"
+              full
+              onPress={() => setImportVisible(true)}
+            >
+              Import JSON…
+            </EmberBtn>
+          </View>
+
+          <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
+            <Rule label="About" accent={colors.gold} />
+          </View>
+          <Text style={styles.about}>
+            D2 Mule Tracker v
+            {Constants.expoConfig?.version ?? '1.0.0'}
+            {'\n'}
+            Offline inventory catalog for Diablo 2 Resurrected.{'\n\n'}
+            Item database sourced from blizzhackers/d2data (MIT license).
+            {'\n'}
+            github.com/blizzhackers/d2data{'\n\n'}
+            Item type icons by Lorc, Delapouite, and contributors{'\n'}
+            from game-icons.net, licensed under CC BY 3.0.{'\n'}
+            Icons have been recolored to match the app theme.{'\n\n'}
+            Built with Expo + React Native.
+          </Text>
+          <View style={{ marginTop: spacing.md }}>
+            <EmberBtn
+              variant="ghost"
+              full
+              onPress={async () => {
+                try {
+                  if (await StoreReview.hasAction()) {
+                    await StoreReview.requestReview();
+                  }
+                } catch {
+                  // Ignore: review prompt unavailable on this platform.
+                }
+              }}
+            >
+              Rate This App
+            </EmberBtn>
+          </View>
+        </ScrollView>
 
       <RealmEditor
         target={editing}
@@ -255,10 +325,11 @@ export default function SettingsScreen() {
             >
               <Text style={styles.dangerBtnText}>Replace</Text>
             </Pressable>
-          </View>
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+            </View>
+          </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -439,22 +510,39 @@ function Row<T extends string>({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   sectionTitle: {
-    color: colors.primary,
-    fontSize: fontSize.lg,
-    fontWeight: '700',
+    color: colors.gold,
+    fontFamily: typography.displaySemi,
+    fontSize: 18,
+    letterSpacing: 2.5,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
   hint: {
     color: colors.textMuted,
-    fontSize: fontSize.sm,
+    fontFamily: typography.mono,
+    fontSize: 11,
+    letterSpacing: 1,
     marginBottom: spacing.md,
-    lineHeight: 20,
+    lineHeight: 18,
+  },
+  hintItalic: {
+    color: colors.textMuted,
+    fontFamily: typography.hand,
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginTop: spacing.sm,
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   about: {
     color: colors.textMuted,
-    fontSize: fontSize.sm,
-    lineHeight: 20,
+    fontFamily: typography.mono,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    lineHeight: 18,
   },
 
   realmRow: {
