@@ -251,7 +251,7 @@ export default function SettingsScreen() {
           if (editing && editing !== 'new') {
             Alert.alert(
               'Delete realm?',
-              `"${editing.name}" and all its containers/items will be permanently removed.`,
+              `"${editing.name}" and all its mules, stashes, and items will be permanently removed.`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 {

@@ -106,7 +106,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen
                 name="container/[id]"
-                options={{ title: 'Container' }}
+                options={{ title: 'Mule' }}
               />
               <Stack.Screen
                 name="modal/add-item"

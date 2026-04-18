@@ -69,8 +69,8 @@ export default function AddItemModal() {
     const name = entry?.name ?? 'this item';
     return new Promise<boolean>((resolve) => {
       Alert.alert(
-        'Already in this container',
-        `This container already has ${name}. Add another?`,
+        'Already added',
+        `This mule or stash already has ${name}. Add another?`,
         [
           { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
           { text: 'Add Another', onPress: () => resolve(true) },
