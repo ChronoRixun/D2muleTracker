@@ -243,10 +243,9 @@ const styles = StyleSheet.create({
     borderColor: colors.borderHi,
   },
   statName: {
-    fontFamily: typography.mono,
-    fontSize: fontSize.sm,
+    fontFamily: typography.hand,
+    fontSize: fontSize.md,
     color: colors.text,
-    letterSpacing: 1,
     flex: 1,
   },
   statRange: {
