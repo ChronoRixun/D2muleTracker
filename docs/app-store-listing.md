@@ -1,7 +1,7 @@
-# App Store Listing — D2 Mule Tracker
+# App Store Listing — Hoard
 
 ## App Name
-D2 Mule Tracker
+Hoard
 
 ## Subtitle (30 characters max)
 Diablo 2 Item Inventory Search
@@ -16,7 +16,7 @@ diablo 2,d2r,mule,inventory,item tracker,runeword,stash,offline,reign of the war
 ## Description
 Track every item across all your Diablo 2 Resurrected mules — then find anything instantly.
 
-D2 Mule Tracker is an offline inventory catalog for Diablo 2 Resurrected. Catalog items on your mule characters and shared stashes, then search across all of them to find any item in seconds. No more logging into every mule to find your Shako.
+Hoard is an offline inventory catalog for Diablo 2 Resurrected. Catalog items on your mule characters and shared stashes, then search across all of them to find any item in seconds. No more logging into every mule to find your Shako.
 
 FEATURES:
 • Instant autocomplete search across 1,300+ items — uniques, sets, runewords, bases, runes, and gems

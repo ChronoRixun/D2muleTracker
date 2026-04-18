@@ -1,5 +1,5 @@
 /**
- * App settings store — motion, density, palette.
+ * App settings store — motion, density.
  *
  * Persisted to a JSON file on disk via expo-file-system. Kept deliberately
  * tiny — no zustand, no AsyncStorage. If more settings grow here, this is
@@ -19,18 +19,15 @@ import {
 
 export type Motion = 'subtle' | 'full';
 export type Density = 'comfortable' | 'dense';
-export type Palette = 'abyssal' | 'hellforge';
 
 export interface Settings {
   motion: Motion;
   density: Density;
-  palette: Palette;
 }
 
 const DEFAULTS: Settings = {
   motion: 'subtle',
   density: 'comfortable',
-  palette: 'abyssal',
 };
 
 const SETTINGS_FILENAME = 'ember-settings.json';
@@ -39,7 +36,6 @@ interface SettingsContextValue extends Settings {
   loaded: boolean;
   setMotion: (m: Motion) => void;
   setDensity: (d: Density) => void;
-  setPalette: (p: Palette) => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -53,7 +49,6 @@ function readSettings(): Settings {
     return {
       motion: parsed.motion === 'full' ? 'full' : 'subtle',
       density: parsed.density === 'dense' ? 'dense' : 'comfortable',
-      palette: parsed.palette === 'hellforge' ? 'hellforge' : 'abyssal',
     };
   } catch {
     return DEFAULTS;
@@ -93,7 +88,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       loaded,
       setMotion: (motion) => update({ motion }),
       setDensity: (density) => update({ density }),
-      setPalette: (palette) => update({ palette }),
     }),
     [state, loaded, update],
   );

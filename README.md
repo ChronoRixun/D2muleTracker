@@ -1,4 +1,4 @@
-# D2 Mule Tracker
+# Hoard
 
 An offline-first **Diablo 2 Resurrected mule inventory tracker** built with
 Expo + React Native. Catalog items across every mule and shared stash, then

@@ -64,7 +64,7 @@ export default function SettingsScreen() {
     const json = JSON.stringify(payload, null, 2);
     try {
       await Share.share({
-        title: 'D2 Mule Tracker Backup',
+        title: 'Hoard Backup',
         message: json,
       });
     } catch {
@@ -75,7 +75,7 @@ export default function SettingsScreen() {
   const handleWriteBackupFile = async () => {
     const payload = await exportAll(db);
     const json = JSON.stringify(payload, null, 2);
-    const file = new File(Paths.document, `d2muletracker-backup-${Date.now()}.json`);
+    const file = new File(Paths.document, `hoard-backup-${Date.now()}.json`);
     file.create();
     file.write(json);
     Alert.alert('Backup saved', file.uri);
@@ -204,7 +204,7 @@ export default function SettingsScreen() {
             <Rule label="About" accent={colors.gold} />
           </View>
           <Text style={styles.about}>
-            D2 Mule Tracker v
+            Hoard v
             {Constants.expoConfig?.version ?? '1.0.0'}
             {'\n'}
             Offline inventory catalog for Diablo 2 Resurrected.{'\n\n'}
