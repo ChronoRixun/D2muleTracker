@@ -748,7 +748,7 @@ function EditContainerModal({
     >
       <View style={styles.modalBackdrop}>
         <View style={styles.modalSheet}>
-          <Text style={styles.sheetTitle}>Edit Container</Text>
+          <Text style={styles.sheetTitle}>Edit Mule</Text>
 
           <Text style={styles.label}>Type</Text>
           <View style={styles.segmentRow}>
