@@ -20,6 +20,7 @@ import { ItemTypeIcon } from '@/components/ItemTypeIcon';
 import { RealmTag } from '@/components/RealmTag';
 import {
   findItemsByIndexIds,
+  findItemsByTags,
   getItemTags,
   listRealms,
   searchNotes,
@@ -87,62 +88,95 @@ export default function SearchScreen() {
   }, [query]);
 
   useEffect(() => {
-    if (debounced.length < 2) {
+    const hasText = debounced.length >= 2;
+    const hasTags = tagFilter.size > 0;
+
+    if (!hasText && !hasTags) {
       setMatchingEntries([]);
       setHits([]);
       setNoteHits([]);
       return;
     }
-    const entries = searchItems(debounced, 30);
-    setMatchingEntries(entries);
+
     const realmArg = realmFilter === 'all' ? undefined : realmFilter;
-    (async () => {
-      const ids = entries.map((e) => e.id);
-      const [byIndex, byNotes] = await Promise.all([
-        findItemsByIndexIds(db, ids, realmArg),
-        searchNotes(db, debounced, realmArg),
-      ]);
-      const entryMap = new Map(entries.map((e) => [e.id, e] as const));
-      setHits(
-        byIndex.map((row) => ({
-          item: row.item,
-          container: row.container,
-          realm: row.realm,
-          entry: entryMap.get(row.item.itemIndexId)!,
-        })).filter((h) => h.entry),
-      );
-      // Notes hits need entries too; look them up synchronously
-      // via the bundled item-index.
-      const noteEntries = byNotes.map((row) => {
-        const e = entries.find((x) => x.id === row.item.itemIndexId);
-        return e
-          ? ({
+    let cancelled = false;
+
+    if (hasText) {
+      const entries = searchItems(debounced, 30);
+      setMatchingEntries(entries);
+      (async () => {
+        const ids = entries.map((e) => e.id);
+        const [byIndex, byNotes] = await Promise.all([
+          findItemsByIndexIds(db, ids, realmArg),
+          searchNotes(db, debounced, realmArg),
+        ]);
+        if (cancelled) return;
+        const entryMap = new Map(entries.map((e) => [e.id, e] as const));
+        setHits(
+          byIndex.map((row) => ({
+            item: row.item,
+            container: row.container,
+            realm: row.realm,
+            entry: entryMap.get(row.item.itemIndexId)!,
+          })).filter((h) => h.entry),
+        );
+        const noteEntries = byNotes.map((row) => {
+          const e = entries.find((x) => x.id === row.item.itemIndexId);
+          return e
+            ? ({
+                item: row.item,
+                container: row.container,
+                realm: row.realm,
+                entry: e,
+              } as SearchHit)
+            : null;
+        });
+        const needsLookup = byNotes.filter(
+          (row) => !entries.some((x) => x.id === row.item.itemIndexId),
+        );
+        for (const row of needsLookup) {
+          const e = getItemById(row.item.itemIndexId);
+          if (e) {
+            noteEntries.push({
               item: row.item,
               container: row.container,
               realm: row.realm,
               entry: e,
-            } as SearchHit)
-          : null;
-      });
-      // Fallback: load entries from full index for notes hits whose items
-      // aren't in the current autocomplete result.
-      const needsLookup = byNotes.filter(
-        (row) => !entries.some((x) => x.id === row.item.itemIndexId),
-      );
-      for (const row of needsLookup) {
-        const e = getItemById(row.item.itemIndexId);
-        if (e) {
-          noteEntries.push({
+            });
+          }
+        }
+        setNoteHits(noteEntries.filter((x): x is SearchHit => !!x));
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // Tag-only mode: no text entered, but one or more tags selected.
+    setMatchingEntries([]);
+    setNoteHits([]);
+    (async () => {
+      const rows = await findItemsByTags(db, Array.from(tagFilter), realmArg);
+      if (cancelled) return;
+      const tagHits: SearchHit[] = [];
+      for (const row of rows) {
+        const entry = getItemById(row.item.itemIndexId);
+        if (entry) {
+          tagHits.push({
             item: row.item,
             container: row.container,
             realm: row.realm,
-            entry: e,
+            entry,
           });
         }
       }
-      setNoteHits(noteEntries.filter((x): x is SearchHit => !!x));
+      setHits(tagHits);
     })();
-  }, [db, debounced, realmFilter, revision]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [db, debounced, realmFilter, revision, tagFilter]);
 
   useEffect(() => {
     const ids = [
@@ -284,18 +318,20 @@ export default function SearchScreen() {
           ) : null}
         </View>
 
-      {debounced.length < 2 ? (
+      {debounced.length < 2 && tagFilter.size === 0 ? (
         <View style={styles.hintWrap}>
           <Text style={styles.hint}>
             Search across every mule and stash. Use item names (shako, enigma,
-            hoto) or roll notes (40FCR, um'd, 358ED).
+            hoto), roll notes (40FCR, um'd, 358ED), or tap a tag above.
           </Text>
         </View>
       ) : combined.length === 0 ? (
         <View style={styles.hintWrap}>
           <Text style={styles.hint}>
-            No matches for “{debounced}” on your mules yet.
-            {matchingEntries.length > 0
+            {debounced.length >= 2
+              ? `No matches for “${debounced}” on your mules yet.`
+              : `No items tagged ${Array.from(tagFilter).map((t) => `“${t}”`).join(' + ')} yet.`}
+            {debounced.length >= 2 && matchingEntries.length > 0
               ? `\n(${matchingEntries.length} item type${matchingEntries.length === 1 ? '' : 's'} match in the database — add items to your mules and stashes to find them here.)`
               : ''}
           </Text>
