@@ -390,8 +390,8 @@ export default function ContainerDetailScreen() {
             <>
               <Text style={styles.emptyBody}>No items yet.</Text>
               <Text style={styles.emptyBody}>
-                Tap “+ Add Item” below to start cataloging gear on this
-                container.
+                Tap “+ Add Item” below to start cataloging gear on this{' '}
+                {container.type === 'character' ? 'mule' : 'stash'}.
               </Text>
             </>
           ) : (
@@ -748,7 +748,9 @@ function EditContainerModal({
     >
       <View style={styles.modalBackdrop}>
         <View style={styles.modalSheet}>
-          <Text style={styles.sheetTitle}>Edit Mule</Text>
+          <Text style={styles.sheetTitle}>
+            Edit {type === 'character' ? 'Mule' : 'Stash'}
+          </Text>
 
           <Text style={styles.label}>Type</Text>
           <View style={styles.segmentRow}>
@@ -1073,7 +1075,7 @@ function MoveItemModal({
           <ScrollView style={{ maxHeight: 320 }}>
             {options.length === 0 ? (
               <Text style={styles.emptyBody}>
-                No other containers in this realm yet.
+                No other mules or stashes in this realm yet.
               </Text>
             ) : (
               options.map((c) => (
@@ -1146,7 +1148,7 @@ function BulkMoveModal({
           <ScrollView style={{ maxHeight: 320 }}>
             {options.length === 0 ? (
               <Text style={styles.emptyBody}>
-                No other containers in this realm yet.
+                No other mules or stashes in this realm yet.
               </Text>
             ) : (
               options.map((c) => (

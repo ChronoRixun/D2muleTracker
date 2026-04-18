@@ -220,7 +220,7 @@ export default function SearchScreen() {
           <Text style={styles.hint}>
             No matches for “{debounced}” on your mules yet.
             {matchingEntries.length > 0
-              ? `\n(${matchingEntries.length} item type${matchingEntries.length === 1 ? '' : 's'} match in the database — add items to containers to find them here.)`
+              ? `\n(${matchingEntries.length} item type${matchingEntries.length === 1 ? '' : 's'} match in the database — add items to your mules and stashes to find them here.)`
               : ''}
           </Text>
         </View>

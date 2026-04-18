@@ -85,7 +85,8 @@ export default function MulesScreen() {
   }, [counts, containers, realms]);
 
   const handleArchive = (c: Container) => {
-    Alert.alert('Archive container?', `Hide "${c.name}" from the list.`, [
+    const label = c.type === 'character' ? 'mule' : 'stash';
+    Alert.alert(`Archive this ${label}?`, `Hide "${c.name}" from the list.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Archive',
@@ -154,7 +155,7 @@ export default function MulesScreen() {
         {sections.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyBody}>
-              No containers yet. Forge your first mule or shared stash.
+              No mules or stashes yet. Forge your first mule or stash.
             </Text>
           </View>
         ) : (
@@ -383,7 +384,9 @@ function AddContainerModal({
         <SafeAreaView style={styles.modalWrap} edges={['top', 'left', 'right']}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalEyebrow}>Forge</Text>
-            <Text style={styles.modalTitle}>New Mule</Text>
+            <Text style={styles.modalTitle}>
+              New {type === 'character' ? 'Mule' : 'Stash'}
+            </Text>
           </View>
           <ScrollView contentContainerStyle={styles.modalContent}>
             <FieldLabel>Realm</FieldLabel>
