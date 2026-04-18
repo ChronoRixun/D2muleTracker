@@ -1,11 +1,13 @@
 import * as Crypto from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { getItemIndex } from '@/lib/itemIndex';
 import type {
   CharacterClass,
   Container,
   ContainerType,
   Era,
+  ItemEntry,
   ItemLocation,
   ItemRecord,
   Ladder,
@@ -638,4 +640,330 @@ export async function importAll(
       );
     }
   });
+}
+
+// ---- Tags -----------------------------------------------------------------
+
+function normalizeTag(tag: string): string {
+  return tag.trim();
+}
+
+export async function addTagToItem(
+  db: SQLiteDatabase,
+  itemId: string,
+  tag: string,
+): Promise<void> {
+  const t = normalizeTag(tag);
+  if (!t) return;
+  try {
+    await db.runAsync(
+      `INSERT OR IGNORE INTO item_tags (id, item_id, tag, created_at)
+       VALUES (?, ?, ?, ?)`,
+      [uuid(), itemId, t, now()],
+    );
+  } catch (err) {
+    console.error('addTagToItem failed', err);
+    throw err;
+  }
+}
+
+export async function removeTagFromItem(
+  db: SQLiteDatabase,
+  itemId: string,
+  tag: string,
+): Promise<void> {
+  const t = normalizeTag(tag);
+  if (!t) return;
+  try {
+    await db.runAsync(
+      'DELETE FROM item_tags WHERE item_id = ? AND tag = ?',
+      [itemId, t],
+    );
+  } catch (err) {
+    console.error('removeTagFromItem failed', err);
+    throw err;
+  }
+}
+
+export async function getItemTags(
+  db: SQLiteDatabase,
+  itemId: string,
+): Promise<string[]> {
+  try {
+    const rows = await db.getAllAsync<{ tag: string }>(
+      'SELECT tag FROM item_tags WHERE item_id = ? ORDER BY tag ASC',
+      [itemId],
+    );
+    return rows.map((r) => r.tag);
+  } catch (err) {
+    console.error('getItemTags failed', err);
+    throw err;
+  }
+}
+
+export async function getAllTags(db: SQLiteDatabase): Promise<string[]> {
+  try {
+    const rows = await db.getAllAsync<{ tag: string }>(
+      'SELECT DISTINCT tag FROM item_tags ORDER BY tag ASC',
+    );
+    return rows.map((r) => r.tag);
+  } catch (err) {
+    console.error('getAllTags failed', err);
+    throw err;
+  }
+}
+
+export async function getItemsByTag(
+  db: SQLiteDatabase,
+  tag: string,
+): Promise<ItemRecord[]> {
+  const t = normalizeTag(tag);
+  if (!t) return [];
+  try {
+    const rows = await db.getAllAsync<ItemRow>(
+      `SELECT i.* FROM items i
+       JOIN item_tags t ON t.item_id = i.id
+       WHERE t.tag = ?
+       ORDER BY i.created_at DESC`,
+      [t],
+    );
+    return rows.map(mapItem);
+  } catch (err) {
+    console.error('getItemsByTag failed', err);
+    throw err;
+  }
+}
+
+export async function bulkAddTag(
+  db: SQLiteDatabase,
+  itemIds: string[],
+  tag: string,
+): Promise<void> {
+  const t = normalizeTag(tag);
+  if (!t || itemIds.length === 0) return;
+  try {
+    await db.withTransactionAsync(async () => {
+      const ts = now();
+      for (const id of itemIds) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO item_tags (id, item_id, tag, created_at)
+           VALUES (?, ?, ?, ?)`,
+          [uuid(), id, t, ts],
+        );
+      }
+    });
+  } catch (err) {
+    console.error('bulkAddTag failed', err);
+    throw err;
+  }
+}
+
+export async function bulkRemoveTag(
+  db: SQLiteDatabase,
+  itemIds: string[],
+  tag: string,
+): Promise<void> {
+  const t = normalizeTag(tag);
+  if (!t || itemIds.length === 0) return;
+  try {
+    const placeholders = itemIds.map(() => '?').join(',');
+    await db.runAsync(
+      `DELETE FROM item_tags WHERE tag = ? AND item_id IN (${placeholders})`,
+      [t, ...itemIds],
+    );
+  } catch (err) {
+    console.error('bulkRemoveTag failed', err);
+    throw err;
+  }
+}
+
+// ---- Set progress ---------------------------------------------------------
+
+export interface SetProgress {
+  setId: string;
+  setName: string;
+  totalPieces: number;
+  ownedPieces: number;
+  ownedItems: ItemRecord[];
+  missingPieceNames: string[];
+}
+
+export async function getSetProgress(
+  db: SQLiteDatabase,
+): Promise<SetProgress[]> {
+  try {
+    const index = getItemIndex();
+    const setPieces = new Map<string, ItemEntry[]>();
+    for (const entry of index) {
+      if (entry.category !== 'set' || !entry.setName) continue;
+      const bucket = setPieces.get(entry.setName) ?? [];
+      bucket.push(entry);
+      setPieces.set(entry.setName, bucket);
+    }
+
+    const results: SetProgress[] = [];
+    for (const [setName, pieces] of setPieces) {
+      const pieceIds = pieces.map((p) => p.id);
+      const placeholders = pieceIds.map(() => '?').join(',');
+      const ownedRows = await db.getAllAsync<ItemRow>(
+        `SELECT * FROM items WHERE item_index_id IN (${placeholders})`,
+        pieceIds,
+      );
+      const ownedItems = ownedRows.map(mapItem);
+      const ownedIndexIds = new Set(ownedItems.map((i) => i.itemIndexId));
+      const missingPieceNames = pieces
+        .filter((p) => !ownedIndexIds.has(p.id))
+        .map((p) => p.name);
+
+      results.push({
+        setId: setName,
+        setName,
+        totalPieces: pieces.length,
+        ownedPieces: ownedIndexIds.size,
+        ownedItems,
+        missingPieceNames,
+      });
+    }
+
+    results.sort((a, b) => {
+      const pa = a.totalPieces === 0 ? 0 : a.ownedPieces / a.totalPieces;
+      const pb = b.totalPieces === 0 ? 0 : b.ownedPieces / b.totalPieces;
+      if (pb !== pa) return pb - pa;
+      return a.setName.localeCompare(b.setName);
+    });
+
+    return results;
+  } catch (err) {
+    console.error('getSetProgress failed', err);
+    throw err;
+  }
+}
+
+// ---- Runeword crafting ----------------------------------------------------
+
+export interface RuneInventory {
+  runeName: string;
+  owned: number;
+}
+
+export interface CraftableRuneword {
+  runewordName: string;
+  recipe: string[];
+  canCraft: boolean;
+  missingRunes: string[];
+}
+
+const KNOWN_RUNES = [
+  'El', 'Eld', 'Tir', 'Nef', 'Eth', 'Ith', 'Tal', 'Ral', 'Ort', 'Thul',
+  'Amn', 'Sol', 'Shael', 'Dol', 'Hel', 'Io', 'Lum', 'Ko', 'Fal', 'Lem',
+  'Pul', 'Um', 'Mal', 'Ist', 'Gul', 'Vex', 'Ohm', 'Lo', 'Sur', 'Ber',
+  'Jah', 'Cham', 'Zod',
+];
+
+function parseRuneString(runes: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while (i < runes.length) {
+    let matched: string | null = null;
+    for (const name of KNOWN_RUNES) {
+      if (runes.startsWith(name, i) && (matched === null || name.length > matched.length)) {
+        matched = name;
+      }
+    }
+    if (!matched) {
+      i += 1;
+      continue;
+    }
+    out.push(matched);
+    i += matched.length;
+  }
+  return out;
+}
+
+export async function getRuneInventory(
+  db: SQLiteDatabase,
+): Promise<RuneInventory[]> {
+  try {
+    const index = getItemIndex();
+    const runeEntries = index.filter((e) => e.category === 'rune');
+    const byId = new Map(runeEntries.map((e) => [e.id, e]));
+
+    const rows = await db.getAllAsync<{ item_index_id: string; total: number }>(
+      `SELECT item_index_id, SUM(quantity) AS total
+       FROM items
+       WHERE item_index_id IN (${runeEntries.map(() => '?').join(',') || 'NULL'})
+       GROUP BY item_index_id`,
+      runeEntries.map((e) => e.id),
+    );
+
+    const ownedMap = new Map<string, number>();
+    for (const r of rows) {
+      const entry = byId.get(r.item_index_id);
+      if (!entry) continue;
+      const runeName = entry.name.replace(/\s*Rune$/i, '');
+      ownedMap.set(runeName, (ownedMap.get(runeName) ?? 0) + r.total);
+    }
+
+    return runeEntries
+      .map((e) => {
+        const runeName = e.name.replace(/\s*Rune$/i, '');
+        return { runeName, owned: ownedMap.get(runeName) ?? 0 };
+      })
+      .sort((a, b) => {
+        const ia = KNOWN_RUNES.indexOf(a.runeName);
+        const ib = KNOWN_RUNES.indexOf(b.runeName);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        return a.runeName.localeCompare(b.runeName);
+      });
+  } catch (err) {
+    console.error('getRuneInventory failed', err);
+    throw err;
+  }
+}
+
+export async function getCraftableRunewords(
+  db: SQLiteDatabase,
+): Promise<CraftableRuneword[]> {
+  try {
+    const inventory = await getRuneInventory(db);
+    const ownedCounts = new Map<string, number>();
+    for (const r of inventory) ownedCounts.set(r.runeName, r.owned);
+
+    const index = getItemIndex();
+    const runewords = index.filter((e) => e.category === 'runeword' && e.runes);
+
+    const results: CraftableRuneword[] = runewords.map((rw) => {
+      const recipe = parseRuneString(rw.runes ?? '');
+      const required = new Map<string, number>();
+      for (const rune of recipe) {
+        required.set(rune, (required.get(rune) ?? 0) + 1);
+      }
+      const missingRunes: string[] = [];
+      for (const [rune, needed] of required) {
+        const owned = ownedCounts.get(rune) ?? 0;
+        if (owned < needed) {
+          for (let i = 0; i < needed - owned; i += 1) missingRunes.push(rune);
+        }
+      }
+      return {
+        runewordName: rw.name,
+        recipe,
+        canCraft: missingRunes.length === 0,
+        missingRunes,
+      };
+    });
+
+    results.sort((a, b) => {
+      if (a.canCraft !== b.canCraft) return a.canCraft ? -1 : 1;
+      if (a.missingRunes.length !== b.missingRunes.length) {
+        return a.missingRunes.length - b.missingRunes.length;
+      }
+      return a.runewordName.localeCompare(b.runewordName);
+    });
+
+    return results;
+  } catch (err) {
+    console.error('getCraftableRunewords failed', err);
+    throw err;
+  }
 }
