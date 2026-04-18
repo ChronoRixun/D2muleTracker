@@ -1397,7 +1397,7 @@ function BulkTagModal({
           {draft.trim() ? (
             <View style={{ marginTop: spacing.sm }}>
               <EmberBtn size="sm" onPress={() => applyAdd(draft)}>
-                Apply “{draft.trim()}” to all
+                {`Apply “${draft.trim()}” to all`}
               </EmberBtn>
             </View>
           ) : null}

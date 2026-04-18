@@ -266,7 +266,7 @@ export function TradeExportModal({
                       full
                       onPress={selectAllVisible}
                     >
-                      Select {visibleItems.length}
+                      {`Select ${visibleItems.length}`}
                     </EmberBtn>
                   </View>
                   <View style={styles.selectBtn}>
@@ -345,7 +345,7 @@ export function TradeExportModal({
                     disabled={selectedIds.size === 0}
                     onPress={() => setStep('preview')}
                   >
-                    Preview ({selectedIds.size})
+                    {`Preview (${selectedIds.size})`}
                   </EmberBtn>
                 </View>
               </View>

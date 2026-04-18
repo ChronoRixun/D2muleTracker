@@ -5,7 +5,7 @@
 
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, type ReactNode } from 'react';
+import { Children, isValidElement, useCallback, type ReactNode } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -139,10 +139,13 @@ function ButtonBody({
   leading,
   trailing,
 }: BodyProps) {
+  const hasElement = Children.toArray(children).some((c) => isValidElement(c));
   const label = (
     <>
       {leading}
-      {typeof children === 'string' ? (
+      {hasElement ? (
+        children
+      ) : (
         <Text
           style={[
             styles.label,
@@ -151,8 +154,6 @@ function ButtonBody({
         >
           {children}
         </Text>
-      ) : (
-        children
       )}
       {trailing}
     </>
