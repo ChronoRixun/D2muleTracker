@@ -34,6 +34,7 @@ import {
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { getItemById } from '@/lib/itemIndex';
+import { useSettings } from '@/lib/settings';
 import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
 import type {
   CharacterClass,
@@ -62,6 +63,7 @@ export default function ContainerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { db, revision, bumpRevision } = useDatabase();
+  const { density } = useSettings();
 
   const [container, setContainer] = useState<Container | null>(null);
   const [items, setItems] = useState<ItemRecord[]>([]);
@@ -199,13 +201,13 @@ export default function ContainerDetailScreen() {
     }
 
     lines.push('—');
-    lines.push('Exported from D2 Mule Tracker');
+    lines.push('Exported from Hoard');
 
     const text = lines.join('\n');
 
     try {
       await Share.share({
-        title: `${container.name} — D2 Mule Tracker`,
+        title: `${container.name} — Hoard`,
         message: text,
       });
     } catch {
@@ -400,8 +402,15 @@ export default function ContainerDetailScreen() {
         </ScrollView>
       ) : (
         <FlatList
+          key={density}
           data={itemsWithEntries}
           keyExtractor={(row) => row.item.id}
+          numColumns={density === 'dense' ? 2 : 1}
+          columnWrapperStyle={
+            density === 'dense'
+              ? { paddingHorizontal: spacing.lg, gap: spacing.sm }
+              : undefined
+          }
           contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
@@ -411,40 +420,58 @@ export default function ContainerDetailScreen() {
               colors={[colors.primary]}
             />
           }
-          renderItem={({ item: row }) =>
-            selectMode ? (
-              <Pressable
-                style={styles.selectRow}
-                onPress={() => toggleSelect(row.item.id)}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    selectedIds.has(row.item.id) && styles.checkboxChecked,
-                  ]}
+          renderItem={({ item: row }) => {
+            const selected = selectedIds.has(row.item.id);
+            if (density === 'dense') {
+              return (
+                <DenseItemCell
+                  entry={row.entry}
+                  selected={selected}
+                  selectMode={selectMode}
+                  onPress={() =>
+                    selectMode
+                      ? toggleSelect(row.item.id)
+                      : setEditTarget(row.item)
+                  }
+                />
+              );
+            }
+            if (selectMode) {
+              return (
+                <Pressable
+                  style={styles.selectRow}
+                  onPress={() => toggleSelect(row.item.id)}
                 >
-                  {selectedIds.has(row.item.id) ? (
-                    <Text style={styles.checkmark}>✓</Text>
-                  ) : null}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <ItemRow
-                    entry={row.entry}
-                    notes={row.item.notes}
-                    quantity={row.item.quantity}
-                    sockets={row.item.sockets}
-                  />
-                </View>
-              </Pressable>
-            ) : (
+                  <View
+                    style={[
+                      styles.checkbox,
+                      selected && styles.checkboxChecked,
+                    ]}
+                  >
+                    {selected ? (
+                      <Text style={styles.checkmark}>✓</Text>
+                    ) : null}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <ItemRow
+                      entry={row.entry}
+                      notes={row.item.notes}
+                      quantity={row.item.quantity}
+                      sockets={row.item.sockets}
+                    />
+                  </View>
+                </Pressable>
+              );
+            }
+            return (
               <SwipeableItemRow
                 entry={row.entry}
                 item={row.item}
                 onPress={() => setEditTarget(row.item)}
                 onDelete={() => handleSwipeDelete(row.item)}
               />
-            )
-          }
+            );
+          }}
         />
       )}
 
@@ -623,6 +650,44 @@ function SwipeableItemRow({
         onPress={onPress}
       />
     </ReanimatedSwipeable>
+  );
+}
+
+// ---- Dense item cell ------------------------------------------------------
+
+function DenseItemCell({
+  entry,
+  selected,
+  selectMode,
+  onPress,
+}: {
+  entry: ItemEntry;
+  selected: boolean;
+  selectMode: boolean;
+  onPress: () => void;
+}) {
+  const color = categoryColor(entry.category);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.denseCell,
+        selectMode && selected && styles.denseCellSelected,
+        pressed && styles.pressedDim,
+      ]}
+    >
+      <View style={[styles.denseColorBar, { backgroundColor: color }]} />
+      <View style={styles.denseBody}>
+        <Text style={[styles.denseName, { color }]} numberOfLines={1}>
+          {entry.name}
+        </Text>
+        {entry.baseName && entry.baseName !== entry.name ? (
+          <Text style={styles.denseBase} numberOfLines={1}>
+            {entry.baseName}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
   );
 }
 
@@ -1518,5 +1583,41 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: fontSize.sm,
+  },
+
+  denseCell: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginVertical: 3,
+    overflow: 'hidden',
+    minHeight: 52,
+  },
+  denseCellSelected: {
+    borderColor: colors.primary,
+  },
+  denseColorBar: {
+    width: 3,
+  },
+  denseBody: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    justifyContent: 'center',
+  },
+  denseName: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  denseBase: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  pressedDim: {
+    opacity: 0.7,
   },
 });

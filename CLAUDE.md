@@ -1,8 +1,8 @@
-# CLAUDE.md — D2 Mule Tracker
+# CLAUDE.md — Hoard
 
 ## Project Overview
 
-Offline-first Diablo 2 Resurrected mule inventory tracker. Lets players catalog which items are on which mule characters, then instantly search across all mules to find any item. Supports Classic, Lord of Destruction, and Reign of the Warlock (RoTW) eras.
+Hoard is an offline-first Diablo 2 Resurrected mule inventory tracker. Lets players catalog which items are on which mule characters, then instantly search across all mules to find any item. Supports Classic, Lord of Destruction, and Reign of the Warlock (RoTW) eras.
 
 **Key principle: this app is fully offline.** No internet required for any core functionality. The item database is bundled at build time. All user data lives in on-device SQLite. The export/import backup uses the native share sheet (which can save to iCloud Drive via iOS). Do not add features that require network connectivity.
 

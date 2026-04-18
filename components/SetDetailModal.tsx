@@ -1,11 +1,15 @@
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Modal, View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
-import { colors, spacing, fontSize, radius } from '@/lib/theme';
+import { colors, spacing, fontSize, radius, typography } from '@/lib/theme';
 import type { SetProgress } from '@/db/queries';
 import { getItemIndex } from '@/lib/itemIndex';
+import { Diamond } from '@/components/ember/Diamond';
+import { EIcon } from '@/components/ember/EIcon';
+import { EmberBG } from '@/components/ember/EmberBG';
+import { SectionHead } from '@/components/ember/SectionHead';
 
 interface Props {
   set: SetProgress;
@@ -36,38 +40,51 @@ export function SetDetailModal({ set, visible, onClose }: Props) {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{set.setName}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+        <EmberBG />
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <SectionHead eyebrow="Codex" title={set.setName} />
+            </View>
+            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+              <EIcon name="x" size={22} color={colors.text} />
+            </Pressable>
+          </View>
 
-        <ScrollView style={styles.list}>
-          {allPieces.map((piece) => {
-            const isOwned = ownedIndexIds.has(piece.id);
-            return (
-              <TouchableOpacity
-                key={piece.id}
-                style={[styles.piece, isOwned && styles.pieceOwned]}
-                onPress={() => handlePiecePress(piece.id, isOwned)}
-                disabled={!isOwned}
-              >
-                <View style={styles.pieceLeft}>
-                  <Ionicons
-                    name={isOwned ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={20}
-                    color={isOwned ? colors.set : colors.textDim}
-                  />
-                  <Text style={[styles.pieceName, isOwned && styles.pieceNameOwned]}>
-                    {piece.name}
-                  </Text>
-                </View>
-                {isOwned && <Text style={styles.viewHint}>View →</Text>}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={{ paddingBottom: spacing.xl }}
+          >
+            {allPieces.map((piece) => {
+              const isOwned = ownedIndexIds.has(piece.id);
+              return (
+                <Pressable
+                  key={piece.id}
+                  style={[styles.piece, isOwned && styles.pieceOwned]}
+                  onPress={() => handlePiecePress(piece.id, isOwned)}
+                  disabled={!isOwned}
+                >
+                  <View style={styles.pieceLeft}>
+                    {isOwned ? (
+                      <EIcon name="check" size={18} color={colors.set} />
+                    ) : (
+                      <Diamond
+                        size="sm"
+                        filled={false}
+                        glow={false}
+                        color={colors.textDim}
+                      />
+                    )}
+                    <Text style={[styles.pieceName, isOwned && styles.pieceNameOwned]}>
+                      {piece.name}
+                    </Text>
+                  </View>
+                  {isOwned && <Text style={styles.viewHint}>View →</Text>}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </SafeAreaView>
       </View>
     </Modal>
   );
@@ -80,17 +97,11 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.lg,
+    justifyContent: 'space-between',
+    paddingRight: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  title: {
-    fontSize: fontSize.xl,
-    color: colors.set,
-    fontWeight: '600',
-    flex: 1,
   },
   closeBtn: {
     padding: spacing.sm,
@@ -116,18 +127,22 @@ const styles = StyleSheet.create({
   pieceLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     flex: 1,
   },
   pieceName: {
     fontSize: fontSize.md,
     color: colors.textDim,
+    fontFamily: typography.body,
   },
   pieceNameOwned: {
-    color: colors.text,
+    color: colors.set,
+    fontWeight: '600',
   },
   viewHint: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     color: colors.textMuted,
+    fontFamily: typography.mono,
+    letterSpacing: 1,
   },
 });

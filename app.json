@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "D2 Mule Tracker",
-    "slug": "d2-mule-tracker",
+    "name": "Hoard",
+    "slug": "hoard",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "d2muletracker",
+    "scheme": "hoard",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
     "splash": {
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chronorixun.d2muletracker",
+      "bundleIdentifier": "com.chronorixun.hoard",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.chronorixun.d2muletracker",
+      "package": "com.chronorixun.hoard",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
