@@ -41,6 +41,7 @@ export interface ItemEntry {
   variableStats?: VariableStat[];
   maxSockets?: number;
   setBonuses?: SetBonus[];
+  allProperties?: VariableStat[];
 }
 
 export type CharacterClass =

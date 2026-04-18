@@ -143,21 +143,24 @@ export function RunewordDetailModal({
               </View>
             )}
 
-            {runeword.variableStats && runeword.variableStats.length > 0 && (
-              <View style={styles.section}>
-                <Rule label="Variable Stats" accent={colors.ember} />
-                {runeword.variableStats.map((stat, idx) => (
-                  <View key={idx} style={styles.statRow}>
-                    <Text style={styles.statName}>{stat.stat}</Text>
-                    <Text style={styles.statRange}>
-                      {stat.min === stat.max
-                        ? `${stat.max}`
-                        : `${stat.min}-${stat.max}`}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            {(runeword.allProperties ?? runeword.variableStats) &&
+              (runeword.allProperties ?? runeword.variableStats)!.length > 0 && (
+                <View style={styles.section}>
+                  <Rule label="Properties" accent={colors.ember} />
+                  {(runeword.allProperties ?? runeword.variableStats)!.map(
+                    (stat, idx) => (
+                      <View key={idx} style={styles.statRow}>
+                        <Text style={styles.statName}>{stat.stat}</Text>
+                        <Text style={styles.statRange}>
+                          {stat.min === stat.max
+                            ? `${stat.max}`
+                            : `${stat.min}-${stat.max}`}
+                        </Text>
+                      </View>
+                    ),
+                  )}
+                </View>
+              )}
           </ScrollView>
         </SafeAreaView>
       </View>
