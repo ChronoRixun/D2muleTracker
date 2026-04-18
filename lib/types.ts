@@ -20,6 +20,11 @@ export interface VariableStat {
   code: string;
 }
 
+export interface SetBonus {
+  pieceCount: number;
+  bonuses: VariableStat[];
+}
+
 export interface ItemEntry {
   id: string;
   name: string;
@@ -35,6 +40,7 @@ export interface ItemEntry {
   searchTerms: string[];
   variableStats?: VariableStat[];
   maxSockets?: number;
+  setBonuses?: SetBonus[];
 }
 
 export type CharacterClass =

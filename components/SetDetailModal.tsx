@@ -9,6 +9,7 @@ import { getItemIndex } from '@/lib/itemIndex';
 import { Diamond } from '@/components/ember/Diamond';
 import { EIcon } from '@/components/ember/EIcon';
 import { EmberBG } from '@/components/ember/EmberBG';
+import { Rule } from '@/components/ember/Rule';
 import { SectionHead } from '@/components/ember/SectionHead';
 
 interface Props {
@@ -83,6 +84,55 @@ export function SetDetailModal({ set, visible, onClose }: Props) {
                 </Pressable>
               );
             })}
+
+            {allPieces.length > 0 &&
+              allPieces[0].setBonuses &&
+              allPieces[0].setBonuses.length > 0 && (
+                <View style={styles.bonusesSection}>
+                  <Rule label="Set Bonuses" accent={colors.ember} />
+                  {allPieces[0].setBonuses.map((bonus, idx) => {
+                    const isFullSet = bonus.pieceCount === -1;
+                    const isActive = isFullSet
+                      ? set.ownedPieces === set.totalPieces
+                      : set.ownedPieces >= bonus.pieceCount;
+
+                    return (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.bonusCard,
+                          isActive && styles.bonusCardActive,
+                          isFullSet && isActive && styles.bonusCardFullSet,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.bonusHeader,
+                            isActive && styles.bonusHeaderActive,
+                          ]}
+                        >
+                          {isFullSet
+                            ? `Full Set (${set.totalPieces})`
+                            : `${bonus.pieceCount} Pieces`}
+                        </Text>
+                        {bonus.bonuses.map((stat, sidx) => (
+                          <Text
+                            key={sidx}
+                            style={[
+                              styles.bonusStat,
+                              isActive && styles.bonusStatActive,
+                            ]}
+                          >
+                            {stat.min === stat.max
+                              ? `+${stat.max} ${stat.stat}`
+                              : `+${stat.min}-${stat.max} ${stat.stat}`}
+                          </Text>
+                        ))}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
           </ScrollView>
         </SafeAreaView>
       </View>
@@ -144,5 +194,53 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: typography.mono,
     letterSpacing: 1,
+  },
+  bonusesSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  bonusCard: {
+    backgroundColor: colors.card,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    opacity: 0.5,
+  },
+  bonusCardActive: {
+    opacity: 1,
+    borderColor: colors.ember,
+  },
+  bonusCardFullSet: {
+    shadowColor: colors.ember,
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  bonusHeader: {
+    fontFamily: typography.displaySemi,
+    fontSize: 14,
+    color: colors.textDim,
+    letterSpacing: 1.5,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+  },
+  bonusHeaderActive: {
+    color: colors.ember,
+  },
+  bonusStat: {
+    fontFamily: typography.mono,
+    fontSize: 12,
+    color: colors.textMuted,
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  bonusStatActive: {
+    color: colors.set,
   },
 });
