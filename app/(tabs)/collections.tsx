@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -15,6 +16,7 @@ import { EmberBG } from '@/components/ember/EmberBG';
 import { EmberGlow } from '@/components/ember/EmberGlow';
 import { Rule } from '@/components/ember/Rule';
 import { SectionHead } from '@/components/ember/SectionHead';
+import { RunewordDetailModal } from '@/components/RunewordDetailModal';
 import { SetDetailModal } from '@/components/SetDetailModal';
 import { SetProgressCard } from '@/components/SetProgressCard';
 import {
@@ -208,6 +210,9 @@ function RunewordsTabContent({
   onRefresh,
   refreshing,
 }: RunewordsTabContentProps) {
+  const [selectedRuneword, setSelectedRuneword] =
+    useState<CraftableRuneword | null>(null);
+
   const craftable = runewords.filter((rw) => rw.canCraft);
   const almostReady = runewords.filter(
     (rw) =>
@@ -216,60 +221,94 @@ function RunewordsTabContent({
       rw.missingRunes.length <= 2,
   );
 
+  const handleRunewordPress = (rw: CraftableRuneword) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => undefined,
+    );
+    setSelectedRuneword(rw);
+  };
+
   return (
-    <FlatList
-      data={runewords}
-      keyExtractor={(rw) => rw.runewordName}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.ember}
+    <>
+      <FlatList
+        data={runewords}
+        keyExtractor={(rw) => rw.runewordName}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.ember}
+          />
+        }
+        ListHeaderComponent={
+          <>
+            {craftable.length > 0 && (
+              <View style={rwStyles.section}>
+                <View style={{ marginHorizontal: spacing.md, marginBottom: 8 }}>
+                  <Rule
+                    label={`Ready to Forge · ${craftable.length}`}
+                    accent={colors.ember}
+                  />
+                </View>
+                {craftable.map((rw) => (
+                  <RunewordCard
+                    key={`top-${rw.runewordName}`}
+                    runeword={rw}
+                    onPress={() => handleRunewordPress(rw)}
+                  />
+                ))}
+              </View>
+            )}
+            {almostReady.length > 0 && (
+              <View style={rwStyles.section}>
+                <View style={{ marginHorizontal: spacing.md, marginBottom: 8 }}>
+                  <Rule
+                    label={`Almost Ready · ${almostReady.length}`}
+                    accent={colors.gold}
+                  />
+                </View>
+                {almostReady.map((rw) => (
+                  <RunewordCard
+                    key={`ar-${rw.runewordName}`}
+                    runeword={rw}
+                    onPress={() => handleRunewordPress(rw)}
+                  />
+                ))}
+              </View>
+            )}
+          </>
+        }
+        renderItem={({ item }) => (
+          <RunewordCard
+            runeword={item}
+            onPress={() => handleRunewordPress(item)}
+          />
+        )}
+        contentContainerStyle={rwStyles.list}
+      />
+
+      {selectedRuneword && (
+        <RunewordDetailModal
+          runewordName={selectedRuneword.runewordName}
+          recipe={selectedRuneword.recipe}
+          missingRunes={selectedRuneword.missingRunes}
+          visible={selectedRuneword !== null}
+          onClose={() => setSelectedRuneword(null)}
         />
-      }
-      ListHeaderComponent={
-        <>
-          {craftable.length > 0 && (
-            <View style={rwStyles.section}>
-              <View style={{ marginHorizontal: spacing.md, marginBottom: 8 }}>
-                <Rule
-                  label={`Ready to Forge · ${craftable.length}`}
-                  accent={colors.ember}
-                />
-              </View>
-              {craftable.map((rw) => (
-                <RunewordCard key={`top-${rw.runewordName}`} runeword={rw} />
-              ))}
-            </View>
-          )}
-          {almostReady.length > 0 && (
-            <View style={rwStyles.section}>
-              <View style={{ marginHorizontal: spacing.md, marginBottom: 8 }}>
-                <Rule
-                  label={`Almost Ready · ${almostReady.length}`}
-                  accent={colors.gold}
-                />
-              </View>
-              {almostReady.map((rw) => (
-                <RunewordCard key={`ar-${rw.runewordName}`} runeword={rw} />
-              ))}
-            </View>
-          )}
-        </>
-      }
-      renderItem={({ item }) => <RunewordCard runeword={item} />}
-      contentContainerStyle={rwStyles.list}
-    />
+      )}
+    </>
   );
 }
 
 interface RunewordCardProps {
   runeword: CraftableRuneword;
+  onPress: () => void;
 }
 
-function RunewordCard({ runeword }: RunewordCardProps) {
+function RunewordCard({ runeword, onPress }: RunewordCardProps) {
   const body = (
-    <View
+    <Pressable
+      onPress={onPress}
       style={[
         rwStyles.card,
         runeword.canCraft && {
@@ -288,7 +327,7 @@ function RunewordCard({ runeword }: RunewordCardProps) {
           Missing: {runeword.missingRunes.join(', ')}
         </Text>
       )}
-    </View>
+    </Pressable>
   );
 
   if (runeword.canCraft) {

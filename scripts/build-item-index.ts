@@ -10,7 +10,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import type { Era, ItemCategory, ItemEntry, VariableStat } from '../lib/types';
+import type { Era, ItemCategory, ItemEntry, SetBonus, VariableStat } from '../lib/types';
 
 const REPO_RAW = 'https://raw.githubusercontent.com/blizzhackers/d2data/master/json';
 const CACHE_DIR = path.join(__dirname, '.cache');
@@ -367,6 +367,49 @@ function extractVariableStats(
   return stats;
 }
 
+function parseSetBonuses(
+  setInfo: any,
+  propNames: Record<string, string>,
+): SetBonus[] {
+  const bonuses: SetBonus[] = [];
+
+  // Partial bonuses: PCode{N}{a|b|c}, PMin{N}{a|b|c}, PMax{N}{a|b|c}
+  for (let pieceCount = 2; pieceCount <= 6; pieceCount++) {
+    const pieceBonuses: VariableStat[] = [];
+    for (const suffix of ['a', 'b', 'c']) {
+      const code = setInfo[`PCode${pieceCount}${suffix}`];
+      if (!code) continue;
+      const rawMin = Number(setInfo[`PMin${pieceCount}${suffix}`] ?? 0);
+      const rawMax = Number(setInfo[`PMax${pieceCount}${suffix}`] ?? 0);
+      const min = Math.min(Math.abs(rawMin), Math.abs(rawMax));
+      const max = Math.max(Math.abs(rawMin), Math.abs(rawMax));
+      const statName = propNames[code] || code;
+      pieceBonuses.push({ stat: statName, min, max, code });
+    }
+    if (pieceBonuses.length > 0) {
+      bonuses.push({ pieceCount, bonuses: pieceBonuses });
+    }
+  }
+
+  // Full set bonuses: FCode{N}, FMin{N}, FMax{N}
+  const fullBonuses: VariableStat[] = [];
+  for (let i = 1; i <= 8; i++) {
+    const code = setInfo[`FCode${i}`];
+    if (!code) continue;
+    const rawMin = Number(setInfo[`FMin${i}`] ?? 0);
+    const rawMax = Number(setInfo[`FMax${i}`] ?? 0);
+    const min = Math.min(Math.abs(rawMin), Math.abs(rawMax));
+    const max = Math.max(Math.abs(rawMin), Math.abs(rawMax));
+    const statName = propNames[code] || code;
+    fullBonuses.push({ stat: statName, min, max, code });
+  }
+  if (fullBonuses.length > 0) {
+    bonuses.push({ pieceCount: -1, bonuses: fullBonuses });
+  }
+
+  return bonuses;
+}
+
 function buildBaseNameLookup(
   items: any[],
   armor: any[],
@@ -450,6 +493,7 @@ function flattenSetItems(
       : typeof setKey === 'string'
         ? setKey
         : '';
+    const setBonuses = setInfo ? parseSetBonuses(setInfo, propNames) : [];
     const era = detectEra({
       version: r.version,
       expansion: r.expansion,
@@ -469,6 +513,7 @@ function flattenSetItems(
       era,
       searchTerms: buildSearchTerms(name, baseName),
       ...(vars.length > 0 ? { variableStats: vars } : {}),
+      ...(setBonuses.length > 0 ? { setBonuses } : {}),
     });
   });
   return out;
