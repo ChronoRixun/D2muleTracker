@@ -148,16 +148,24 @@ export function RunewordDetailModal({
                 <View style={styles.section}>
                   <Rule label="Properties" accent={colors.ember} />
                   {(runeword.allProperties ?? runeword.variableStats)!.map(
-                    (stat, idx) => (
-                      <View key={idx} style={styles.statRow}>
-                        <Text style={styles.statName}>{stat.stat}</Text>
-                        <Text style={styles.statRange}>
-                          {stat.min === stat.max
-                            ? `${stat.max}`
-                            : `${stat.min}-${stat.max}`}
-                        </Text>
-                      </View>
-                    ),
+                    (stat, idx) => {
+                      const isPreformatted = /\d+%|\d+-\d+%|Level \d+/i.test(
+                        stat.stat,
+                      );
+
+                      return (
+                        <View key={idx} style={styles.statRow}>
+                          <Text style={styles.statName}>{stat.stat}</Text>
+                          {!isPreformatted && (
+                            <Text style={styles.statRange}>
+                              {stat.min === stat.max
+                                ? `${stat.max}`
+                                : `${stat.min}-${stat.max}`}
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    },
                   )}
                 </View>
               )}
