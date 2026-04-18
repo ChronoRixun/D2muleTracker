@@ -6,11 +6,11 @@
     "orientation": "portrait",
     "scheme": "hoard",
     "userInterfaceStyle": "dark",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon/icon.png",
     "splash": {
-      "image": "./assets/splash-image.png",
+      "image": "./assets/icon/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0c0204"
+      "backgroundColor": "#070403"
     },
     "ios": {
       "supportsTablet": true,
@@ -24,12 +24,13 @@
       "package": "com.chronorixun.hoard",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#0c0204"
+        "foregroundImage": "./assets/icon/adaptive-icon.png",
+        "backgroundColor": "#0a0403"
       }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/icon/favicon.png"
     },
     "plugins": [
       "expo-router",
