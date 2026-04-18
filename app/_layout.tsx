@@ -139,7 +139,6 @@ function AppShell() {
           headerTintColor: colors.text,
           headerTitleStyle: {
             fontFamily: 'Cinzel-SemiBold',
-            letterSpacing: 2,
           },
           contentStyle: { backgroundColor: colors.bg },
         }}

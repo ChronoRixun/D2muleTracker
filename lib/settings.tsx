@@ -47,7 +47,7 @@ function readSettings(): Settings {
   try {
     const file = new File(Paths.document, SETTINGS_FILENAME);
     if (!file.exists) return DEFAULTS;
-    const raw = file.text();
+    const raw = file.textSync();
     const parsed = JSON.parse(raw) as Partial<Settings>;
     return {
       motion: parsed.motion === 'full' ? 'full' : 'subtle',

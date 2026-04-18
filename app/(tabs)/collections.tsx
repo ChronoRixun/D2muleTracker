@@ -126,7 +126,10 @@ function SetsTabContent({ sets, onRefresh, refreshing }: SetsTabContentProps) {
   const [selectedSet, setSelectedSet] = useState<SetProgress | null>(null);
 
   const almostComplete = sets.filter(
-    (s) => s.ownedPieces >= s.totalPieces - 2 && s.ownedPieces < s.totalPieces,
+    (s) =>
+      s.ownedPieces > 0 &&
+      s.ownedPieces >= s.totalPieces - 2 &&
+      s.ownedPieces < s.totalPieces,
   );
 
   const handleSetPress = (set: SetProgress) => {
@@ -207,7 +210,10 @@ function RunewordsTabContent({
 }: RunewordsTabContentProps) {
   const craftable = runewords.filter((rw) => rw.canCraft);
   const almostReady = runewords.filter(
-    (rw) => !rw.canCraft && rw.missingRunes.length <= 2,
+    (rw) =>
+      rw.recipe.length - rw.missingRunes.length > 0 &&
+      !rw.canCraft &&
+      rw.missingRunes.length <= 2,
   );
 
   return (

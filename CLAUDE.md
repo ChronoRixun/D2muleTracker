@@ -51,7 +51,8 @@ components/             Reusable UI
   itemTypeIconSvgs.ts   SVG markup strings for all item type icons
   ContainerCard.tsx     Mule/stash card with swipe-to-archive
   SetProgressCard.tsx   Set completion card with progress bar & dots
-  SetDetailModal.tsx    Modal showing all set pieces, owned vs missing
+  SetDetailModal.tsx    Modal showing set pieces + set bonuses (2pc, 3pc, full)
+  RunewordDetailModal.tsx Modal showing runeword details (runes, base types, stats, level req)
   CategoryBadge.tsx     Unique/Set/Runeword/etc. badge
   ItemAutocomplete.tsx  Search + autocomplete with recent items
   RealmTag.tsx          Realm indicator chip
@@ -71,6 +72,9 @@ scripts/                build-item-index.ts (generates item-index.json from d2da
 - **Container detail header: name gets full width.** The container name, subtitle, and category stats occupy full width on their own lines. Action buttons (Select, Share, Edit) go in a row BELOW the name/stats, never beside them. Long container names must not be truncated by competing buttons.
 - **Expo Router navigation: use explicit group paths.** When navigating to tab screens from modals or other contexts, use the full path including the group: `router.push({ pathname: '/(tabs)/search', params: { ... } })` instead of just `/search`. This ensures the router correctly resolves nested routes and tab navigation.
 - **Haptics are light only.** Use `Haptics.impactAsync(ImpactFeedbackStyle.Light)` wrapped in `.catch(() => undefined)`. Never Medium or Heavy for routine interactions.
+- **Interactive Codex modals are tappable.** Both set items and runewords in the Collections tab should be tappable to show detailed modals. Use `Pressable` with haptic feedback and state management for the selected item.
+- **Set bonus active states must be calculated.** SetDetailModal compares `ownedPieces` to `bonus.pieceCount` to determine if a bonus is active. Full set bonuses (`pieceCount: -1`) are active when `ownedPieces === totalPieces`.
+- **Runeword modals show ownership context.** RunewordDetailModal displays which runes the user owns (checkmarks) vs. missing (empty diamonds) based on the `missingRunes` array from the craftability query.
 - **Item index is read-only at runtime.** The bundled `item-index.json` is loaded once into memory on app start via `lib/itemIndex.ts`. It's never modified at runtime. To update items, modify `scripts/build-item-index.ts` and run `npm run build:item-index`.
 - **UUIDs via expo-crypto.** All database IDs use `Crypto.randomUUID()`.
 - **Timestamps are ISO strings.** All `created_at` / `updated_at` fields store `new Date().toISOString()`.
@@ -101,6 +105,42 @@ npm run build:item-index
 ```
 
 Current stats: ~1,353 items, 52 RoTW, 99 active runewords, 437 bases with socket data. ~280 KB bundled.
+
+---
+
+## Set Bonus Data Structure
+
+**Added in interactive Codex enhancement.** Set items now include `setBonuses` arrays that describe partial and full set bonuses.
+
+### Structure
+```typescript
+interface SetBonus {
+  pieceCount: number;  // 2, 3, 4, etc., or -1 for full set
+  bonuses: VariableStat[];
+}
+
+interface ItemEntry {
+  // ... existing fields ...
+  setBonuses?: SetBonus[];  // Only present on set category items
+}
+```
+
+### Data Source
+Set bonuses are parsed from `sets.json` during the item index build:
+- **Partial bonuses:** `PCode2a/PMin2a/PMax2a` = 2-piece, `PCode3a/PMin3a/PMax3a` = 3-piece, etc.
+- **Full set bonuses:** `FCode1/FMin1/FMax1`, `FCode2/FMin2/FMax2`, etc.
+- Property codes (`dmg%`, `res-all`, etc.) are mapped to readable names using the same `propNames` map as item stats
+
+### Special Values
+- `pieceCount: -1` is a sentinel value indicating "full set bonus" (applies when all pieces are owned)
+- Stat values are stored as absolute numbers (e.g., `+50` not `-50`)
+- Each set item in the index contains the FULL bonus structure for its set (not split across items)
+
+### Display Rules
+- Active bonuses (user owns enough pieces) are highlighted with ember color
+- Inactive bonuses are dimmed (opacity 0.5)
+- Full set bonuses get ember glow effect when complete
+- Bonuses are displayed grouped by piece count: 2-piece, 3-piece, ..., Full Set
 
 ---
 
@@ -146,6 +186,7 @@ Update the author names once you know which specific icons were selected.
 - [x] Collections tab — set completion tracker, runeword calculator
 
 ### Next
+- [ ] Interactive Codex — set bonuses (2pc, 3pc, full), runeword details (rune sequence, base types, stats, level req), inventory cross-referencing
 - [ ] Custom tags — tag items (For Trade, God Roll, etc.), filter by tags
 - [ ] Phase 5 — App Store prep (icon, splash screen, developer license, store listing, screenshots)
 
@@ -166,3 +207,5 @@ Update the author names once you know which specific icons were selected.
 7. **Container header buttons go BELOW the name**, not beside it. Putting buttons in the same row as the container name causes long names to wrap/truncate. Use a vertical stack layout for the header.
 8. **Database migrations must be additive.** Schema version 3 adds `item_tags` table. Future migrations must check `if (current < N)` and only apply their changes. Never drop or rename columns — existing user data must be preserved.
 9. **Runeword property fields use `T1Code{N}` prefix**, not `prop{N}` like uniques/sets. Any code that extracts item properties must handle both naming conventions.
+10. **Set bonuses use `pieceCount: -1` for full set bonuses.** This is a sentinel value. When displaying bonuses, check if `pieceCount === -1` to determine if it's a full set bonus (requires all pieces) vs. a partial bonus (requires specific piece count).
+11. **Each set item contains the FULL bonus structure for its set.** The `setBonuses` array is duplicated across all items in a set. This allows any set item to display complete set information without cross-referencing other items in the index.
