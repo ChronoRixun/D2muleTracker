@@ -229,17 +229,27 @@ export default function AddItemModal() {
 
         <View style={styles.footer}>
           <View style={{ flex: 1 }}>
-            <EmberBtn variant="outline" full onPress={() => router.back()}>
+            <EmberBtn
+              variant="outline"
+              size="sm"
+              full
+              onPress={() => router.back()}
+            >
               Cancel
             </EmberBtn>
           </View>
           <View style={{ flex: 1 }}>
-            <EmberBtn variant="ghost" full onPress={saveAndAddAnother}>
-              + Another
+            <EmberBtn
+              variant="ghost"
+              size="sm"
+              full
+              onPress={saveAndAddAnother}
+            >
+              + More
             </EmberBtn>
           </View>
           <View style={{ flex: 1 }}>
-            <EmberBtn full onPress={save}>
+            <EmberBtn size="sm" full onPress={save}>
               Save
             </EmberBtn>
           </View>

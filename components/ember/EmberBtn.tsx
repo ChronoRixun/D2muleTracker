@@ -38,10 +38,13 @@ interface Props {
   trailing?: ReactNode;
 }
 
-const SIZE_STYLES: Record<EmberBtnSize, { height: number; pad: number; font: number }> = {
-  sm: { height: 36, pad: 14, font: 11 },
-  md: { height: 44, pad: 18, font: 13 },
-  lg: { height: 52, pad: 22, font: 15 },
+const SIZE_STYLES: Record<
+  EmberBtnSize,
+  { height: number; pad: number; font: number; letterSpacing: number }
+> = {
+  sm: { height: 36, pad: 14, font: 11, letterSpacing: 1.5 },
+  md: { height: 44, pad: 18, font: 13, letterSpacing: 3 },
+  lg: { height: 52, pad: 22, font: 15, letterSpacing: 3 },
 };
 
 export function EmberBtn({
@@ -101,6 +104,7 @@ export function EmberBtn({
           height={sizing.height}
           pad={sizing.pad}
           font={sizing.font}
+          letterSpacing={sizing.letterSpacing}
           textColor={textColor}
           leading={leading}
           trailing={trailing}
@@ -117,6 +121,7 @@ interface BodyProps {
   height: number;
   pad: number;
   font: number;
+  letterSpacing: number;
   textColor: string;
   children: ReactNode;
   leading?: ReactNode;
@@ -128,6 +133,7 @@ function ButtonBody({
   height,
   pad,
   font,
+  letterSpacing,
   textColor,
   children,
   leading,
@@ -137,7 +143,12 @@ function ButtonBody({
     <>
       {leading}
       {typeof children === 'string' ? (
-        <Text style={[styles.label, { color: textColor, fontSize: font }]}>
+        <Text
+          style={[
+            styles.label,
+            { color: textColor, fontSize: font, letterSpacing },
+          ]}
+        >
           {children}
         </Text>
       ) : (
@@ -250,7 +261,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: typography.displaySemi,
-    letterSpacing: 3,
     textTransform: 'uppercase',
     textAlign: 'center',
   },

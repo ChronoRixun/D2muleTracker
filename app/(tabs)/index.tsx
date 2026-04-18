@@ -111,7 +111,11 @@ export default function MulesScreen() {
               Forge a realm to begin cataloging your mules. A realm groups
               characters by era, mode, and ladder.
             </Text>
-            <EmberBtn onPress={() => setShowAddRealm(true)} size="lg">
+            <EmberBtn
+              onPress={() => setShowAddRealm(true)}
+              size="lg"
+              style={{ alignSelf: 'center' }}
+            >
               Forge a Realm
             </EmberBtn>
           </View>
@@ -255,7 +259,10 @@ function AddRealmModal({ visible, onClose, onCreate }: AddRealmModalProps) {
       <View style={styles.root}>
         <EmberBG />
         <SafeAreaView style={styles.modalWrap} edges={['top', 'left', 'right']}>
-          <SectionHead eyebrow="Forge" title="NEW REALM" />
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalEyebrow}>Forge</Text>
+            <Text style={styles.modalTitle}>New Realm</Text>
+          </View>
           <ScrollView contentContainerStyle={styles.modalContent}>
             <FieldLabel>Name</FieldLabel>
             <TextInput
@@ -374,7 +381,10 @@ function AddContainerModal({
       <View style={styles.root}>
         <EmberBG />
         <SafeAreaView style={styles.modalWrap} edges={['top', 'left', 'right']}>
-          <SectionHead eyebrow="Forge" title="NEW CONTAINER" />
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalEyebrow}>Forge</Text>
+            <Text style={styles.modalTitle}>New Mule</Text>
+          </View>
           <ScrollView contentContainerStyle={styles.modalContent}>
             <FieldLabel>Realm</FieldLabel>
             <View style={styles.chipWrap}>
@@ -523,6 +533,25 @@ const styles = StyleSheet.create({
   },
   modalWrap: {
     flex: 1,
+  },
+  modalHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  modalEyebrow: {
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 3,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  modalTitle: {
+    fontFamily: typography.displaySemi,
+    fontSize: 22,
+    color: colors.gold,
+    letterSpacing: 2,
   },
   modalContent: {
     padding: 20,
