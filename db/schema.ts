@@ -41,7 +41,18 @@ CREATE TABLE IF NOT EXISTS items (
 CREATE INDEX IF NOT EXISTS idx_items_container   ON items(container_id);
 CREATE INDEX IF NOT EXISTS idx_items_item_index  ON items(item_index_id);
 CREATE INDEX IF NOT EXISTS idx_containers_realm  ON containers(realm_id);
+
+CREATE TABLE IF NOT EXISTS item_tags (
+  id         TEXT PRIMARY KEY,
+  item_id    TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  tag        TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(item_id, tag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_item_tags_item_id ON item_tags(item_id);
+CREATE INDEX IF NOT EXISTS idx_item_tags_tag     ON item_tags(tag);
 `;
 
 export const DB_NAME = 'd2muletracker.db';
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;

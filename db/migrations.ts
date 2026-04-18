@@ -20,6 +20,20 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     await db.execAsync('ALTER TABLE items ADD COLUMN sockets INTEGER;');
   }
 
+  if (current > 0 && current < 3) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS item_tags (
+        id         TEXT PRIMARY KEY,
+        item_id    TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        tag        TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(item_id, tag)
+      );
+      CREATE INDEX IF NOT EXISTS idx_item_tags_item_id ON item_tags(item_id);
+      CREATE INDEX IF NOT EXISTS idx_item_tags_tag     ON item_tags(tag);
+    `);
+  }
+
   // Future migrations: add `if (current < N)` blocks here.
 
   if (current !== CURRENT_SCHEMA_VERSION) {
