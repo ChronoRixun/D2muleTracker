@@ -1,0 +1,340 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Hoard — Splash → First Paint</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Cormorant+Garamond:ital@1&display=swap" rel="stylesheet">
+<style>html,body{margin:0;padding:0;background:#0a0a0a;overflow:hidden}</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="animations.jsx"></script>
+<script type="text/babel">
+const C = {
+  void:'#030201', bg:'#070403', card:'#130906',
+  text:'#f0d8b8', textDim:'#9a7a5c',
+  gold:'#e8b048', goldHi:'#f5cf7a',
+  ember:'#ff5020', emberHi:'#ff8038',
+  line:'#2a1408', lineGold:'#5a3a18',
+};
+
+// Diamond sigil — matches the one on the Mules screen
+function Sigil({ size=128, emberAlpha=1, scale=1 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" style={{transform:`scale(${scale})`,transformOrigin:'center'}}>
+      <defs>
+        <linearGradient id="sp-gold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={C.goldHi}/>
+          <stop offset="50%" stopColor={C.gold}/>
+          <stop offset="100%" stopColor="#8a5018"/>
+        </linearGradient>
+        <radialGradient id="sp-ember" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffd080" stopOpacity={emberAlpha}/>
+          <stop offset="40%" stopColor="#ff8038" stopOpacity={emberAlpha}/>
+          <stop offset="100%" stopColor="#ff5020" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+      <g transform="translate(50 50) rotate(45)">
+        <rect x="-30" y="-30" width="60" height="60" fill="url(#sp-gold)"/>
+        <rect x="-26" y="-26" width="52" height="52" fill={C.bg}/>
+        <rect x="-18" y="-18" width="36" height="36" fill="url(#sp-gold)"/>
+        <rect x="-14" y="-14" width="28" height="28" fill={C.void}/>
+        <circle cx="0" cy="0" r="11" fill="url(#sp-ember)"/>
+        <circle cx="0" cy="0" r="4" fill="#ffe8b0" opacity={emberAlpha}/>
+      </g>
+    </svg>
+  );
+}
+
+// Floating embers
+function EmberField({ count=14, intensity=1 }) {
+  const particles = React.useMemo(() => Array.from({length:count}).map((_,i) => ({
+    x: 10 + Math.random()*80,
+    delay: Math.random()*4,
+    dur: 4 + Math.random()*4,
+    size: 1 + Math.random()*2.5,
+    drift: (Math.random()-0.5)*60,
+  })), [count]);
+  const t = useTime();
+  return (
+    <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+      {particles.map((p,i) => {
+        const phase = ((t - p.delay) % p.dur) / p.dur;
+        if (phase < 0) return null;
+        const y = phase * 520;
+        const opacity = intensity * Math.sin(phase * Math.PI) * 0.9;
+        const x = p.drift * phase;
+        return (
+          <div key={i} style={{
+            position:'absolute',
+            left: `${p.x}%`, bottom: `-20px`,
+            transform:`translate(${x}px, -${y}px)`,
+            width: p.size*2, height: p.size*2, borderRadius:'50%',
+            background: '#ff6a30',
+            boxShadow: `0 0 ${p.size*6}px ${p.size*2}px rgba(255,100,40,${0.6*intensity})`,
+            opacity,
+          }}/>
+        );
+      })}
+    </div>
+  );
+}
+
+// Mules tab — target screen after splash
+function MulesScreen({ reveal=0 }) {
+  return (
+    <div style={{
+      position:'absolute',inset:0,background:C.bg,
+      opacity:reveal,
+      fontFamily:'-apple-system,system-ui,sans-serif',
+      overflow:'hidden',
+    }}>
+      {/* status bar */}
+      <div style={{display:'flex',justifyContent:'space-between',padding:'12px 24px',color:C.text,fontSize:14,fontWeight:600}}>
+        <span>9:41</span>
+        <span style={{fontFamily:'"JetBrains Mono"',fontSize:10,letterSpacing:2,color:C.gold}}>· · ·</span>
+      </div>
+      {/* header */}
+      <div style={{padding:'24px 24px 12px'}}>
+        <div style={{fontFamily:'"JetBrains Mono"',fontSize:10,letterSpacing:4,color:C.gold,textTransform:'uppercase'}}>
+          The Hoard
+        </div>
+        <div style={{fontFamily:'"Cinzel"',fontSize:30,color:C.text,letterSpacing:2,fontWeight:700,marginTop:8,
+          textShadow:'0 0 20px rgba(255,80,32,0.3)'}}>
+          MULES
+        </div>
+      </div>
+      {/* stats ribbon */}
+      <div style={{display:'flex',gap:12,padding:'0 24px 20px'}}>
+        {[['1,284','items'],['12','mules'],['3','realms'],['28','runes']].map(([n,l]) => (
+          <div key={l} style={{flex:1,border:`1px solid ${C.line}`,borderRadius:8,padding:'10px 8px',textAlign:'center',background:C.card}}>
+            <div style={{fontFamily:'"Cinzel"',fontSize:18,color:C.gold,fontWeight:700}}>{n}</div>
+            <div style={{fontFamily:'"JetBrains Mono"',fontSize:8,letterSpacing:2,color:C.textDim,textTransform:'uppercase',marginTop:2}}>{l}</div>
+          </div>
+        ))}
+      </div>
+      {/* section rule */}
+      <div style={{display:'flex',alignItems:'center',gap:12,padding:'8px 24px'}}>
+        <div style={{flex:1,height:1,background:C.line}}/>
+        <div style={{fontFamily:'"JetBrains Mono"',fontSize:9,letterSpacing:3,color:C.gold,textTransform:'uppercase'}}>Azeron · HC</div>
+        <div style={{flex:1,height:1,background:C.line}}/>
+      </div>
+      {/* mule rows */}
+      {[
+        ['WARBRINGER','Barbarian · 98',187,'ember'],
+        ['Shared Stash #2','Stash · —',412,'gold'],
+        ['SUNSPIRE','Sorceress · 96',94,'ember'],
+      ].map(([name,meta,count,tone],i) => (
+        <div key={i} style={{
+          margin:'8px 24px',
+          border:`1px solid ${tone==='gold'?C.lineGold:C.line}`,
+          background:C.card,borderRadius:10,padding:'14px 16px',
+          display:'flex',alignItems:'center',gap:12,
+        }}>
+          <div style={{width:10,height:10,transform:'rotate(45deg)',
+            background:tone==='gold'?C.gold:C.ember,
+            boxShadow:`0 0 8px ${tone==='gold'?C.gold:C.ember}`}}/>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:'"Cinzel"',fontSize:15,color:C.text,fontWeight:600,letterSpacing:0.5}}>{name}</div>
+            <div style={{fontFamily:'"JetBrains Mono"',fontSize:9,color:C.textDim,letterSpacing:1,marginTop:3}}>{meta}</div>
+          </div>
+          <div style={{fontFamily:'"JetBrains Mono"',fontSize:13,color:C.gold,fontWeight:700}}>{count}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Splash({ motion='full' }) {
+  const t = useTime();
+
+  // Timing (seconds):
+  // 0.0 — black
+  // 0.3 — sigil fades in, grows slightly
+  // 1.4 — ember core ignites, embers begin floating
+  // 2.2 — "HOARD" wordmark flickers in below
+  // 2.6 — italic tagline appears
+  // 4.4 — everything fades + sigil pulls up, app reveals
+  // 5.0 — fully on Mules screen
+  // 5.5 — loop
+
+  // Sigil
+  const sigilOpacity = interpolate([0,0.3,4.3,4.8],[0,1,1,0], Easing.easeInOutCubic)(t);
+  const sigilScale   = interpolate([0,0.3,1.4,4.3,4.8],[0.7,1.0,1.05,1.0,0.5], Easing.easeOutCubic)(t);
+  const sigilY       = interpolate([0,0.3,4.3,4.8],[0,0,0,-80], Easing.easeInCubic)(t);
+  const emberAlpha   = interpolate([0,1.4,2.0],[0,0,1], Easing.easeOutQuad)(t);
+
+  // Wordmark
+  const wordOpacity = interpolate([0,2.2,2.7,4.2,4.6],[0,0,1,1,0], Easing.easeOutCubic)(t);
+  // Flicker on entry
+  const flickerPhase = (t - 2.2) * 18;
+  const flicker = t > 2.2 && t < 3.0
+    ? 1 + 0.25 * Math.sin(flickerPhase) * Math.exp(-(t-2.2)*2)
+    : 1;
+
+  // Tagline
+  const taglineOp = interpolate([0,2.6,3.0,4.0,4.4],[0,0,1,1,0], Easing.easeOutCubic)(t);
+
+  // App reveal
+  const appReveal = interpolate([0,4.3,4.9],[0,0,1], Easing.easeInOutCubic)(t);
+
+  // Ember particles
+  const emberIntensity = interpolate([0,1.4,2.0,4.2,4.6],[0,0,1,1,0], Easing.linear)(t) *
+                         (motion==='full'?1:0);
+
+  // Background pulse
+  const bgPulse = 0.5 + 0.5 * Math.sin(t * 2);
+
+  return (
+    <div style={{
+      width:360,height:780,position:'relative',
+      background:C.void,overflow:'hidden',borderRadius:44,
+      boxShadow:'0 30px 80px rgba(0,0,0,0.5), 0 0 0 8px #1a1a1a, 0 0 0 10px #333',
+    }}>
+      {/* App layer (behind) */}
+      <MulesScreen reveal={appReveal}/>
+
+      {/* Splash layer — fades out to reveal app */}
+      <div style={{
+        position:'absolute',inset:0,
+        background:C.void,
+        opacity: 1 - Math.pow(appReveal, 0.6),
+        pointerEvents:'none',
+      }}>
+        {/* ambient ember glow — radial */}
+        <div style={{
+          position:'absolute',inset:0,
+          background:`radial-gradient(ellipse at 50% 55%, rgba(255,80,32,${0.25*emberAlpha*(0.8+0.2*bgPulse)}) 0%, rgba(255,80,32,0) 60%)`,
+        }}/>
+
+        {/* Particles */}
+        <EmberField count={16} intensity={emberIntensity}/>
+
+        {/* Sigil */}
+        <div style={{
+          position:'absolute',left:'50%',top:'40%',
+          transform:`translate(-50%, calc(-50% + ${sigilY}px)) scale(${sigilScale})`,
+          opacity:sigilOpacity,
+          filter: emberAlpha>0.1 ? `drop-shadow(0 0 ${20*emberAlpha}px rgba(255,80,32,${0.6*emberAlpha}))` : 'none',
+        }}>
+          <Sigil size={128} emberAlpha={emberAlpha}/>
+        </div>
+
+        {/* HOARD wordmark */}
+        <div style={{
+          position:'absolute',left:'50%',top:'62%',
+          transform:`translate(-50%,-50%) scale(${flicker})`,
+          opacity:wordOpacity,
+          fontFamily:'"Cinzel", serif',
+          fontSize:44,fontWeight:700,letterSpacing:10,
+          color:C.text,
+          textShadow: `0 0 ${16*flicker}px rgba(255,80,32,${0.7*flicker}),
+                       0 0 ${4*flicker}px rgba(255,200,120,${0.5*flicker})`,
+          whiteSpace:'nowrap',
+        }}>
+          HOARD
+        </div>
+
+        {/* Tagline */}
+        <div style={{
+          position:'absolute',left:'50%',top:'70%',
+          transform:'translate(-50%,-50%)',
+          opacity:taglineOp,
+          fontFamily:'"Cormorant Garamond", serif',
+          fontStyle:'italic',
+          fontSize:16,color:C.textDim,
+          letterSpacing:0.5,
+          textAlign:'center',
+          width:320,
+        }}>
+          even in hell, the damned keep ledgers
+        </div>
+
+        {/* Bottom frame decoration */}
+        <div style={{
+          position:'absolute',left:0,right:0,bottom:60,
+          display:'flex',alignItems:'center',gap:10,padding:'0 60px',
+          opacity: taglineOp * 0.7,
+        }}>
+          <div style={{flex:1,height:1,background:`linear-gradient(90deg, transparent, ${C.lineGold}, transparent)`}}/>
+          <div style={{width:6,height:6,transform:'rotate(45deg)',background:C.gold}}/>
+          <div style={{flex:1,height:1,background:`linear-gradient(90deg, transparent, ${C.lineGold}, transparent)`}}/>
+        </div>
+      </div>
+
+      {/* Dynamic island on top */}
+      <div style={{
+        position:'absolute',top:11,left:'50%',transform:'translateX(-50%)',
+        width:126,height:37,borderRadius:24,background:'#000',zIndex:50,
+      }}/>
+      {/* Home indicator */}
+      <div style={{
+        position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',
+        width:139,height:5,borderRadius:3,
+        background: appReveal > 0.5 ? 'rgba(240,216,184,0.5)' : 'rgba(240,216,184,0.15)',
+        zIndex:50,
+      }}/>
+    </div>
+  );
+}
+
+// Side-by-side: Subtle + Full variants, plus a timing strip
+function App() {
+  const [motion, setMotion] = React.useState('full');
+  return (
+    <div style={{
+      width:'100vw',height:'100vh',
+      background:'#0a0a0a',
+      fontFamily:'-apple-system,system-ui,sans-serif',
+      position:'relative',
+    }}>
+      <Stage width={1200} height={900} duration={5.5} background="#0a0a0a" autoplay={true} loop={true} persistKey="hoard-splash">
+        {/* Two phones side-by-side */}
+        <Sprite start={0} end={5.5} keepMounted={true}>
+          <div style={{position:'absolute',inset:0,paddingTop:120,display:'flex',alignItems:'center',justifyContent:'center',gap:80}}>
+            <div style={{position:'relative'}}>
+              <div style={{position:'absolute',top:-32,left:'50%',transform:'translateX(-50%)',
+                fontFamily:'"JetBrains Mono"',fontSize:10,letterSpacing:4,whiteSpace:'nowrap',
+                color:'#e8b048',textTransform:'uppercase'}}>Full · Hellforge</div>
+              <FullSplash motion="full"/>
+            </div>
+            <div style={{position:'relative'}}>
+              <div style={{position:'absolute',top:-32,left:'50%',transform:'translateX(-50%)',
+                fontFamily:'"JetBrains Mono"',fontSize:10,letterSpacing:4,whiteSpace:'nowrap',
+                color:'#9a7a5c',textTransform:'uppercase'}}>Subtle · Motion Off</div>
+              <FullSplash motion="subtle"/>
+            </div>
+          </div>
+        </Sprite>
+
+        {/* Overlay title */}
+        <Sprite start={0} end={5.5} keepMounted={true}>
+          <div style={{position:'absolute',top:32,left:0,right:0,textAlign:'center'}}>
+            <div style={{fontFamily:'"JetBrains Mono"',fontSize:10,letterSpacing:5,color:'rgba(232,176,72,0.7)',textTransform:'uppercase'}}>
+              Hoard · Splash → First Paint
+            </div>
+            <div style={{fontFamily:'"Cinzel"',fontSize:26,color:'#f0d8b8',letterSpacing:2,marginTop:8,fontWeight:700}}>
+              Static PNG → Animated hand-off → Mules tab
+            </div>
+            <div style={{fontFamily:'"Cormorant Garamond"',fontStyle:'italic',fontSize:14,color:'#9a7a5c',marginTop:4}}>
+              5½ second loop · scrub to explore timing
+            </div>
+          </div>
+        </Sprite>
+      </Stage>
+    </div>
+  );
+}
+
+// Wrap Splash in its own Sprite so useSprite isn't needed; it uses useTime directly.
+function FullSplash({ motion }) {
+  return <Splash motion={motion}/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

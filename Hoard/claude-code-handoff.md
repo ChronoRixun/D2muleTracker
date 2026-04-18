@@ -285,28 +285,30 @@ No need for `react-native-skia` — views + transforms + shadows cover everythin
 2. Wire fonts + splash hold.
 3. Extend settings store with `motion` / `density`.
 4. Build `EmberBG` + verify on Mules tab.
+5. Export Diamond Sigil icon set (§12) and wire `app.json`.
 
 **Phase 2 — Atoms** (1 day)
-5. Diamond, RarityDot, Rule.
-6. EmberBtn (all 4 variants), Chip, SectionHead.
-7. TabBar restyle + rename tabs. FAB.
-8. Port icon set to `react-native-svg`.
+6. Diamond, RarityDot, Rule.
+7. EmberBtn (all 4 variants), Chip, SectionHead.
+8. TabBar restyle + rename tabs. FAB.
+9. Port icon set to `react-native-svg`.
+10. Build `AnimatedSplash` component (§13).
 
 **Phase 3 — Screen polish** (2 days)
-9. Mules (dashboard ribbon + row restyle).
-10. Container detail (header + Comfortable/Dense toggle).
-11. Item detail modal.
-12. Add/Edit Item form.
-13. Seek restyle.
-14. Codex (Sets + Runewords) restyle.
-15. Forge (Settings) with Motion + Density segments.
+11. Mules (dashboard ribbon + row restyle).
+12. Container detail (header + Comfortable/Dense toggle).
+13. Item detail modal.
+14. Add/Edit Item form.
+15. Seek restyle.
+16. Codex (Sets + Runewords) restyle.
+17. Forge (Settings) with Motion + Density segments.
 
 **Phase 4 — Motion + polish** (half day)
-16. Particle field in EmberBG.
-17. Pulse loops on hero elements.
-18. Press animations.
-19. Empty states.
-20. Haptics.
+18. Particle field in EmberBG.
+19. Pulse loops on hero elements.
+20. Press animations.
+21. Empty states.
+22. Haptics.
 
 ---
 
@@ -316,5 +318,114 @@ No need for `react-native-skia` — views + transforms + shadows cover everythin
 - `ember/atoms.jsx` — web versions of every atom
 - `ember/icons.jsx` — all 40 SVG paths
 - `Mule Tracker Designs.html` — interactive pixel-fidelity reference (toggle motion via Tweaks panel to preview Subtle vs Full)
+- `icons.html` — app icon directions. **Final pick: 02 Diamond Sigil** (forged gold with ember core). See §12.
+- `splash.html` — static-splash → animated-first-paint sequence. See §13.
+
+---
+
+## 12 · App icon — Diamond Sigil
+
+The chosen mark ties the home-screen glance to a motif the user sees everywhere inside the app (diamond bullets on mule rows, rarity dots, empty-state hero).
+
+**Structure** (1024×1024 master SVG, export to PNG at all required sizes):
+- **Background**: radial gradient, `#1c0d08` center → `#0a0403` edge.
+- **Outer diamond**: 540pt rotated square, forged-gold linear gradient (`#f5cf7a` → `#e8b048` → `#c88a28` top→bottom), 6pt darker inner stroke for bevel.
+- **Inner diamond frame**: 480pt black cutout, then 340pt inner gold diamond, then 280pt black cutout — produces the nested forged-metal effect.
+- **Ember core**: radial gradient (`#ffd080` 0% → `#ff8038` 30% → `#ff5020` 70% → transparent), 95pt radius, center.
+- **Hot center**: 40pt `#ffe8b0` → 16pt `#fff`.
+- **Outer glow** (dark mode only): 280pt blurred `#ff5020` at 25% opacity behind the diamond.
+
+**Export sizes** (place in `assets/icon/` and configure `app.json`):
+- `icon.png` — 1024×1024 master (App Store)
+- `adaptive-icon.png` — 1024×1024 foreground for Android (diamond only, no bg)
+- `adaptive-icon-bg.png` — solid `#0a0403` background layer
+- `favicon.png` — 48×48 (web fallback)
+- `splash-icon.png` — 200×200 (used in §13)
+
+**`app.json` config**:
+```json
+{
+  "expo": {
+    "icon": "./assets/icon/icon.png",
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon/adaptive-icon.png",
+        "backgroundColor": "#0a0403"
+      }
+    }
+  }
+}
+```
+
+**Light tinted variant** (iOS 18 themed icons): same mark, swap backgrounds for `#f5e8cc` → `#e8d4a8` gradient, gold for `#8a5018` (darker), keep ember core unchanged. Export as `icon-tinted.png` and wire via the iOS icon composer.
+
+Do NOT drop-shadow the glyph at small sizes — it muddies to mush at 60pt. The bevel + inner cutout already creates depth.
+
+---
+
+## 13 · Splash screen
+
+iOS launch images must be static (Apple rule). Two-stage approach:
+
+### Stage 1: Static splash (`expo-splash-screen`)
+Pure black `#070403` background, Diamond Sigil centered at ~160pt, subtle ember radial glow baked into the PNG. No wordmark, no tagline, no version. Held until fonts + initial data load.
+
+**`app.json`**:
+```json
+{
+  "expo": {
+    "plugins": [
+      ["expo-splash-screen", {
+        "image": "./assets/icon/splash-icon.png",
+        "imageWidth": 200,
+        "backgroundColor": "#070403",
+        "dark": { "backgroundColor": "#070403" }
+      }]
+    ]
+  }
+}
+```
+
+In root `_layout.tsx`:
+```ts
+import * as SplashScreen from 'expo-splash-screen';
+SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: 600, fade: true });
+// call SplashScreen.hideAsync() once fonts + db ready — NOT before
+```
+
+### Stage 2: Animated hand-off (first React frame)
+As soon as the app mounts, render a full-screen `<AnimatedSplash/>` on top of Mules that runs for 2.4s then fades out. This is where Full Hellforge introduces itself; in Subtle mode, skip straight to a 250ms crossfade and drop to Mules.
+
+**Timing** (mirror `splash.html`, but trimmed for real-app cold-start tolerance):
+- `0.0s` Diamond Sigil already drawn from static splash — no pop-in.
+- `0.0 → 0.6s` Ember core ignites: center gradient alpha 0 → 1 (Easing.out).
+- `0.4 → 1.0s` HOARD wordmark fades in with text-flicker (`ember-text-flicker` recipe from tokens), scale 0.98 → 1.0.
+- `0.8 → 1.4s` Italic tagline appears: `"even in hell, the damned keep ledgers"` in Cormorant Garamond italic, `#9a7a5c`, letterSpacing 0.5.
+- `1.4 → 2.0s` Hold.
+- `2.0 → 2.4s` Full layer fades out (`opacity 1 → 0`, `Math.pow(t, 0.6)` curve so the reveal is front-loaded), Mules tab underneath is fully rendered and ready.
+- `2.4s` Unmount splash component.
+
+**Full Hellforge extras** (only when `motion === 'full'`):
+- 14–16 floating ember particles behind the sigil from 0.4s onward (reuse `EmberBG`'s particle system, but scaled up — larger, slower, higher contrast).
+- Ambient radial glow behind sigil pulses with `1 + 0.1*sin(t*2)` brightness.
+- Text-flicker on the wordmark uses decaying sine: `1 + 0.25 * Math.sin(t*18) * Math.exp(-t*2)` for the first 800ms after reveal.
+
+**Subtle mode**:
+- No particles, no pulse, no flicker.
+- Sigil + wordmark appear with a single 400ms fade, hold 1s, fade to app in 250ms. Total duration: 1.65s.
+
+**Implementation (`components/AnimatedSplash.tsx`):**
+```ts
+// Full-screen absolute overlay, pointerEvents: 'none' after 2s,
+// unmounted at 2.4s. Uses Reanimated useSharedValue(time) driven by
+// useFrameCallback or a shared start-timestamp. Don't use setInterval.
+// Read motion from settings store — skip particles if 'subtle'.
+// On finish, set a ref flag so it never replays on warm starts.
+```
+
+**Cold vs warm starts**: the animated hand-off only plays on cold start. Track via a module-level `let hasPlayed = false`; set true after first unmount. Warm starts skip straight to Mules.
+
+**Data load budget**: if SQLite bootstrap takes >2s (unlikely for this app), extend the static splash automatically — don't start the animated stage until queries resolve. Avoid animated splash "blocking" perceived startup.
 
 Match the HTML spacing/sizing exactly unless RN constraints force a change — then err toward what feels native (larger hit targets, respect safe areas).
