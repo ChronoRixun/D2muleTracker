@@ -3,7 +3,6 @@
  *
  * Renders the tier-scaled effects that aren't tied to any specific screen:
  *   • AmbientEmbers — small glowing dots drifting upward (Nightmare/Hellforge)
- *   • Flames        — SVG tongues licking the bottom edge (Nightmare/Hellforge)
  *   • EdgeVignette  — orange inset frame; pulses on Hellforge
  *   • ForgeSparks   — periodic spark bursts near the top (Hellforge only)
  *
@@ -22,10 +21,8 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 
 import { useMotionConfig } from '@/lib/settings';
 import { colors } from '@/lib/theme';
@@ -33,7 +30,7 @@ import { colors } from '@/lib/theme';
 export function MotionFXLayer() {
   const cfg = useMotionConfig();
 
-  if (cfg.ambientParticles === 0 && cfg.flameCount === 0 && !cfg.vignetteOpacity && !cfg.forgeSparks) {
+  if (cfg.ambientParticles === 0 && !cfg.vignetteOpacity && !cfg.forgeSparks) {
     return null;
   }
 
@@ -44,9 +41,6 @@ export function MotionFXLayer() {
           count={cfg.ambientParticles}
           cinders={cfg.cinderParticles}
         />
-      ) : null}
-      {cfg.flameCount > 0 ? (
-        <Flames count={cfg.flameCount} opacity={cfg.flameOpacity} />
       ) : null}
       {cfg.vignetteOpacity > 0 ? (
         <EdgeVignette
@@ -196,181 +190,6 @@ function Ember({ spec }: { spec: EmberSpec }) {
         animatedStyle,
       ]}
     />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Flames — SVG tongues along the bottom; scaleY flicker + horizontal wobble
-// ---------------------------------------------------------------------------
-
-interface FlameSpec {
-  key: number;
-  width: number;
-  height: number;
-  left: number;
-  flickerDur: number;
-  wobbleDur: number;
-  glowDur: number;
-  delay: number;
-  fsMin: number;
-  fsMax: number;
-  hue: 'core' | 'mid' | 'outer';
-}
-
-const FLAME_PATH =
-  'M50 120 C 15 110, 15 85, 30 60 C 38 48, 34 38, 40 28 C 44 20, 48 22, 48 34 ' +
-  'C 52 24, 60 18, 58 8 C 58 2, 64 2, 66 10 C 72 24, 78 40, 78 58 ' +
-  'C 78 76, 88 82, 88 98 C 88 112, 72 120, 50 120 Z';
-
-function Flames({ count, opacity }: { count: number; opacity: number }) {
-  const flames = useMemo<FlameSpec[]>(() => {
-    const arr: FlameSpec[] = [];
-    for (let i = 0; i < count; i++) {
-      const r = pseudoRandom(i + 1000);
-      const r2 = pseudoRandom(i + 2000);
-      const r3 = pseudoRandom(i + 3000);
-      const r4 = pseudoRandom(i + 4000);
-      arr.push({
-        key: i,
-        width: 60 + r * 80,
-        height: 80 + r2 * 130,
-        left: ((i + 0.5) / count) * 100 + (r3 - 0.5) * (40 / count),
-        flickerDur: 550 + r2 * 450,
-        wobbleDur: 1800 + r * 1400,
-        glowDur: 900 + r3 * 600,
-        delay: r4 * 2000,
-        fsMin: 0.78 + r * 0.08,
-        fsMax: 1.02 + r2 * 0.12,
-        hue: r3 > 0.6 ? 'core' : r3 > 0.25 ? 'mid' : 'outer',
-      });
-    }
-    return arr.sort((a, b) => a.height - b.height);
-  }, [count]);
-
-  return (
-    <View style={[styles.flamesWrap, { opacity }]} pointerEvents="none">
-      <LinearGradient
-        colors={[
-          'rgba(255,120,60,0.55)',
-          'rgba(255,80,32,0.25)',
-          'transparent',
-        ]}
-        locations={[0, 0.4, 1]}
-        start={{ x: 0.5, y: 1 }}
-        end={{ x: 0.5, y: 0 }}
-        style={styles.flameBaseGlow}
-      />
-      {flames.map((f) => (
-        <FlameTongue key={f.key} spec={f} />
-      ))}
-    </View>
-  );
-}
-
-function FlameTongue({ spec }: { spec: FlameSpec }) {
-  const flicker = useSharedValue(0);
-  const wobble = useSharedValue(0);
-  const glow = useSharedValue(0);
-
-  useEffect(() => {
-    flicker.value = withDelay(
-      spec.delay,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: spec.flickerDur * 0.5 }),
-          withTiming(0, { duration: spec.flickerDur * 0.5 }),
-        ),
-        -1,
-        false,
-      ),
-    );
-    wobble.value = withRepeat(
-      withTiming(1, {
-        duration: spec.wobbleDur,
-        easing: Easing.inOut(Easing.sin),
-      }),
-      -1,
-      true,
-    );
-    glow.value = withRepeat(
-      withTiming(1, {
-        duration: spec.glowDur,
-        easing: Easing.inOut(Easing.sin),
-      }),
-      -1,
-      true,
-    );
-    return () => {
-      cancelAnimation(flicker);
-      cancelAnimation(wobble);
-      cancelAnimation(glow);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const scaleY = interpolate(flicker.value, [0, 1], [spec.fsMin, spec.fsMax]);
-    const skewDeg = interpolate(wobble.value, [0, 1], [-2, 3]);
-    const opacity = interpolate(glow.value, [0, 1], [0.55, 1]);
-    return {
-      opacity,
-      transform: [
-        { scaleY },
-        { skewX: `${skewDeg}deg` },
-      ],
-    };
-  });
-
-  const colorFor = (hue: FlameSpec['hue']) => {
-    if (hue === 'core') return { fill: '#ffb050', glow: '#ff8800' };
-    if (hue === 'mid') return { fill: '#ff6600', glow: '#ff4500' };
-    return { fill: '#c83018', glow: '#b03810' };
-  };
-  const c = colorFor(spec.hue);
-
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          left: `${spec.left}%`,
-          bottom: -10,
-          width: spec.width,
-          height: spec.height,
-          marginLeft: -spec.width / 2,
-          shadowColor: c.glow,
-          shadowOpacity: 0.85,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: -6 },
-          elevation: 5,
-        },
-        animatedStyle,
-      ]}
-      pointerEvents="none"
-    >
-      <Svg
-        viewBox="0 0 100 120"
-        width="100%"
-        height="100%"
-        preserveAspectRatio="none"
-      >
-        <Defs>
-          <SvgLinearGradient
-            id={`flameGrad${spec.key}`}
-            x1="50%"
-            y1="100%"
-            x2="50%"
-            y2="0%"
-          >
-            <Stop offset="0%" stopColor={c.glow} stopOpacity={0.95} />
-            <Stop offset="45%" stopColor={c.fill} stopOpacity={0.85} />
-            <Stop offset="80%" stopColor="#ffd080" stopOpacity={0.45} />
-            <Stop offset="100%" stopColor="#fff5c8" stopOpacity={0} />
-          </SvgLinearGradient>
-        </Defs>
-        <Path d={FLAME_PATH} fill={`url(#flameGrad${spec.key})`} />
-      </Svg>
-    </Animated.View>
   );
 }
 
@@ -575,20 +394,6 @@ function Spark({
 }
 
 const styles = StyleSheet.create({
-  flamesWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '40%',
-  },
-  flameBaseGlow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '60%',
-  },
   vEdge: {
     position: 'absolute',
     left: 0,

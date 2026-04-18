@@ -8,7 +8,7 @@
  * Motion is a three-tier system:
  *   - 'subtle'    — Normal Difficulty: clean, minimal, no particles
  *   - 'nightmare' — Dark · ominous · breathing glow + drifting embers
- *   - 'hellforge' — Maximum: molten glow, flames, forge sparks, edge vignette
+ *   - 'hellforge' — Maximum: molten glow, forge sparks, edge vignette
  *
  * The reduced-motion accessibility setting forces 'subtle' regardless of the
  * stored preference. `effectiveMotion` reflects the override; `motion` is the
@@ -169,8 +169,6 @@ export interface MotionTierConfig {
   cinderParticles: number;
   vignettePulse: boolean;
   vignetteOpacity: number;
-  flameCount: number;
-  flameOpacity: number;
   headerShimmer: boolean;
   titleMolten: boolean;
   dividerBreathe: boolean;
@@ -201,8 +199,6 @@ export const MOTION_TIERS: Record<Motion, MotionTierConfig> = {
     cinderParticles: 0,
     vignettePulse: false,
     vignetteOpacity: 0,
-    flameCount: 0,
-    flameOpacity: 0,
     headerShimmer: false,
     titleMolten: false,
     dividerBreathe: false,
@@ -227,8 +223,6 @@ export const MOTION_TIERS: Record<Motion, MotionTierConfig> = {
     cinderParticles: 0,
     vignettePulse: false,
     vignetteOpacity: 0.18,
-    flameCount: 3,
-    flameOpacity: 0.45,
     headerShimmer: true,
     titleMolten: false,
     dividerBreathe: true,
@@ -253,8 +247,6 @@ export const MOTION_TIERS: Record<Motion, MotionTierConfig> = {
     cinderParticles: 4,
     vignettePulse: true,
     vignetteOpacity: 0.32,
-    flameCount: 7,
-    flameOpacity: 0.85,
     headerShimmer: true,
     titleMolten: true,
     dividerBreathe: true,

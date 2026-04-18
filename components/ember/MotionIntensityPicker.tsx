@@ -213,10 +213,10 @@ const TIER_BULLETS: Record<Motion, string[]> = {
   ],
   hellforge: [
     '20–30 embers + cinders pool',
-    'Flames lick the bottom edge',
     'Molten glow titles · 0.8 s pulse',
     'Forge spark bursts every 2–4 s',
     'Firelight flicker on stat values',
+    'Pulsing edge vignette',
   ],
 };
 
