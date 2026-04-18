@@ -28,6 +28,7 @@ const SOURCES = [
   'misc.json',
   'allstrings-eng.json',
   'properties.json',
+  'skills.json',
 ] as const;
 
 type SourceName = (typeof SOURCES)[number];
@@ -340,9 +341,103 @@ function buildPropertyNameMap(propertiesData: any): Record<string, string> {
   return map;
 }
 
+// ---- Skill name resolution ----------------------------------------------
+
+function buildSkillNameMap(
+  skillsData: any,
+  strings: Strings,
+): Record<string, string> {
+  const rows = parseObjectLike<any>(skillsData);
+  const map: Record<string, string> = {};
+
+  for (const r of rows) {
+    // `r.skill` is the canonical capitalized display name ("Life Tap"); runeword
+    // T1Param values match this form. Some item properties reference a numeric
+    // skill id instead (e.g. "93" for Bone Spirit), which matches `r.__key` or
+    // `r["*Id"]`, so we index under all three.
+    const nameKey = r.skillname ?? r.skilldesc;
+    const skillName =
+      (nameKey && strings[nameKey]) || r.skill || nameKey || r.__key;
+    if (!skillName) continue;
+
+    const keys = new Set<string>();
+    if (r.skill) keys.add(String(r.skill));
+    if (r.__key != null) keys.add(String(r.__key));
+    if (r['*Id'] != null) keys.add(String(r['*Id']));
+    for (const k of keys) {
+      map[k] = skillName;
+      map[k.toLowerCase()] = skillName;
+    }
+  }
+
+  return map;
+}
+
+function formatSkillProperty(
+  propCode: string,
+  propName: string,
+  _skillCode: string | undefined,
+  skillName: string,
+  min: number,
+  max: number,
+): string {
+  if (propCode === 'att-skill') {
+    const chance = min;
+    const level = max;
+    return `${chance}% Chance to cast level ${level} ${skillName} on attack`;
+  }
+
+  if (propCode === 'hit-skill') {
+    const chance = min === max ? `${min}` : `${min}-${max}`;
+    const level = max;
+    return `${chance}% Chance to cast level ${level} ${skillName} on striking`;
+  }
+
+  if (propCode === 'gethit-skill') {
+    const chance = min === max ? `${min}` : `${min}-${max}`;
+    const level = max;
+    return `${chance}% Chance to cast level ${level} ${skillName} when struck`;
+  }
+
+  if (propCode === 'aura') {
+    const level = min;
+    return `Level ${level} ${skillName} Aura When Equipped`;
+  }
+
+  if (propCode === 'death-skill') {
+    const chance = min === max ? `${min}` : `${min}-${max}`;
+    const level = max;
+    return `${chance}% Chance to cast level ${level} ${skillName} when you Die`;
+  }
+
+  if (propCode === 'levelup-skill') {
+    const chance = min === max ? `${min}` : `${min}-${max}`;
+    const level = max;
+    return `${chance}% Chance to cast level ${level} ${skillName} when you Level-Up`;
+  }
+
+  if (propCode === 'kill-skill') {
+    const chance = min === max ? `${min}` : `${min}-${max}`;
+    const level = max;
+    return `${chance}% Chance to cast level ${level} ${skillName} when you Kill an Enemy`;
+  }
+
+  if (propCode === 'oskill' || propCode === 'skill') {
+    const level = min;
+    return `+${level} to ${skillName}`;
+  }
+
+  if (propName.includes('[Skill]')) {
+    return propName.replace('[Skill]', skillName);
+  }
+
+  return propName;
+}
+
 function extractVariableStats(
   item: any,
   propNames: Record<string, string>,
+  skillNames: Record<string, string>,
   fieldPrefix: { code: string; min: string; max: string; par: string } = {
     code: 'prop',
     min: 'min',
@@ -355,13 +450,20 @@ function extractVariableStats(
   for (let i = 1; i <= maxProps; i++) {
     const code = item[`${fieldPrefix.code}${i}`];
     if (!code) continue;
+    const param = item[`${fieldPrefix.par}${i}`];
     const rawMin = Number(item[`${fieldPrefix.min}${i}`] ?? 0);
     const rawMax = Number(item[`${fieldPrefix.max}${i}`] ?? 0);
     if (rawMin === rawMax) continue;
     // Display as absolute values since property name implies the direction.
     const min = Math.min(Math.abs(rawMin), Math.abs(rawMax));
     const max = Math.max(Math.abs(rawMin), Math.abs(rawMax));
-    const statName = propNames[code] || code;
+    let statName = propNames[code] || code;
+    if (param && statName.includes('[Skill]')) {
+      const key = String(param);
+      const skillName =
+        skillNames[key] || skillNames[key.toLowerCase()] || key;
+      statName = formatSkillProperty(code, statName, key, skillName, min, max);
+    }
     stats.push({ stat: statName, min, max, code });
   }
   return stats;
@@ -437,6 +539,7 @@ function flattenUniques(
   strings: Strings,
   baseNames: Record<string, string>,
   propNames: Record<string, string>,
+  skillNames: Record<string, string>,
 ): ItemEntry[] {
   const rows = parseObjectLike<any>(src);
   const out: ItemEntry[] = [];
@@ -451,7 +554,7 @@ function flattenUniques(
       name,
       type: r.type,
     });
-    const vars = extractVariableStats(r, propNames);
+    const vars = extractVariableStats(r, propNames, skillNames);
     out.push({
       id: `unique-${r.__key ?? i}`,
       name,
@@ -474,6 +577,7 @@ function flattenSetItems(
   strings: Strings,
   baseNames: Record<string, string>,
   propNames: Record<string, string>,
+  skillNames: Record<string, string>,
 ): ItemEntry[] {
   const setRows = parseObjectLike<any>(sets);
   const setByIndex: Record<string, any> = {};
@@ -500,7 +604,7 @@ function flattenSetItems(
       name,
       type: r.type,
     });
-    const vars = extractVariableStats(r, propNames);
+    const vars = extractVariableStats(r, propNames, skillNames);
     out.push({
       id: `set-${r.__key ?? i}`,
       name,
@@ -523,6 +627,7 @@ function flattenRunewords(
   src: any,
   strings: Strings,
   propNames: Record<string, string>,
+  skillNames: Record<string, string>,
 ): ItemEntry[] {
   const rows = parseObjectLike<any>(src);
   const out: ItemEntry[] = [];
@@ -549,6 +654,7 @@ function flattenRunewords(
     const vars = extractVariableStats(
       r,
       propNames,
+      skillNames,
       { code: 'T1Code', min: 'T1Min', max: 'T1Max', par: 'T1Param' },
       7,
     );
@@ -556,11 +662,18 @@ function flattenRunewords(
     for (let n = 1; n <= 7; n++) {
       const code = r[`T1Code${n}`];
       if (!code) continue;
+      const param = r[`T1Param${n}`];
       const rawMin = Number(r[`T1Min${n}`] ?? 0);
       const rawMax = Number(r[`T1Max${n}`] ?? 0);
       const min = Math.min(Math.abs(rawMin), Math.abs(rawMax));
       const max = Math.max(Math.abs(rawMin), Math.abs(rawMax));
-      const statName = propNames[code] || code;
+      let statName = propNames[code] || code;
+      if (param && statName.includes('[Skill]')) {
+        const key = String(param);
+        const skillName =
+          skillNames[key] || skillNames[key.toLowerCase()] || key;
+        statName = formatSkillProperty(code, statName, key, skillName, min, max);
+      }
       allProps.push({ stat: statName, min, max, code });
     }
     out.push({
@@ -704,6 +817,7 @@ async function main() {
     misc,
     allstringsRaw,
     properties,
+    skillsRaw,
   ] = await Promise.all(SOURCES.map((s) => fetchJson(s)));
 
   // allstrings-eng.json is either an array or { [key]: { enUS } }.
@@ -722,10 +836,30 @@ async function main() {
   const baseNames = buildBaseNameLookup(itemRows, armorRows, weaponRows);
   const propNames = buildPropertyNameMap(properties);
   console.log(`  loaded ${Object.keys(propNames).length} property names`);
+  const skillNames = buildSkillNameMap(skillsRaw, strings);
+  console.log(`  loaded ${Object.keys(skillNames).length} skill names`);
 
-  const uniqueEntries = flattenUniques(uniques, strings, baseNames, propNames);
-  const setEntries = flattenSetItems(setitems, sets, strings, baseNames, propNames);
-  const runewordEntries = flattenRunewords(runewords, strings, propNames);
+  const uniqueEntries = flattenUniques(
+    uniques,
+    strings,
+    baseNames,
+    propNames,
+    skillNames,
+  );
+  const setEntries = flattenSetItems(
+    setitems,
+    sets,
+    strings,
+    baseNames,
+    propNames,
+    skillNames,
+  );
+  const runewordEntries = flattenRunewords(
+    runewords,
+    strings,
+    propNames,
+    skillNames,
+  );
   const miscEntriesRaw = flattenMisc(misc, strings);
   const baseEntries = flattenBases(armor, weapons, strings);
 
