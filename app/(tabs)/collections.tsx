@@ -1,25 +1,30 @@
-import { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
 import * as Haptics from 'expo-haptics';
-
-import { SetProgressCard } from '@/components/SetProgressCard';
-import { SetDetailModal } from '@/components/SetDetailModal';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  getSetProgress,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Chip } from '@/components/ember/Chip';
+import { EmberBG } from '@/components/ember/EmberBG';
+import { EmberGlow } from '@/components/ember/EmberGlow';
+import { Rule } from '@/components/ember/Rule';
+import { SectionHead } from '@/components/ember/SectionHead';
+import { SetDetailModal } from '@/components/SetDetailModal';
+import { SetProgressCard } from '@/components/SetProgressCard';
+import {
   getCraftableRunewords,
-  type SetProgress,
+  getSetProgress,
   type CraftableRuneword,
+  type SetProgress,
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
-import { colors, spacing, fontSize, radius } from '@/lib/theme';
+import { colors, radius, spacing, typography } from '@/lib/theme';
 
 type TabType = 'sets' | 'runewords';
 
@@ -57,44 +62,56 @@ export default function CollectionsScreen() {
   }, [loadData]);
 
   const handleTabSwitch = (tab: TabType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => undefined,
+    );
     setActiveTab(tab);
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.container}>
+        <EmberBG />
+        <SafeAreaView style={[{ flex: 1 }, styles.centered]}>
+          <ActivityIndicator size="large" color={colors.ember} />
+        </SafeAreaView>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'sets' && styles.tabActive]}
-          onPress={() => handleTabSwitch('sets')}
-        >
-          <Text style={[styles.tabText, activeTab === 'sets' && styles.tabTextActive]}>
-            Sets
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'runewords' && styles.tabActive]}
-          onPress={() => handleTabSwitch('runewords')}
-        >
-          <Text style={[styles.tabText, activeTab === 'runewords' && styles.tabTextActive]}>
-            Runewords
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <EmberBG />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <SectionHead eyebrow="Forgotten Lore" title="CODEX" />
 
-      {activeTab === 'sets' ? (
-        <SetsTabContent sets={sets} onRefresh={onRefresh} refreshing={refreshing} />
-      ) : (
-        <RunewordsTabContent runewords={runewords} onRefresh={onRefresh} refreshing={refreshing} />
-      )}
+        <View style={styles.segWrap}>
+          <Chip
+            label="Sets"
+            active={activeTab === 'sets'}
+            onPress={() => handleTabSwitch('sets')}
+          />
+          <Chip
+            label="Runewords"
+            active={activeTab === 'runewords'}
+            onPress={() => handleTabSwitch('runewords')}
+          />
+        </View>
+
+        {activeTab === 'sets' ? (
+          <SetsTabContent
+            sets={sets}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+          />
+        ) : (
+          <RunewordsTabContent
+            runewords={runewords}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+          />
+        )}
+      </SafeAreaView>
     </View>
   );
 }
@@ -113,7 +130,9 @@ function SetsTabContent({ sets, onRefresh, refreshing }: SetsTabContentProps) {
   );
 
   const handleSetPress = (set: SetProgress) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => undefined,
+    );
     setSelectedSet(set);
   };
 
@@ -126,17 +145,24 @@ function SetsTabContent({ sets, onRefresh, refreshing }: SetsTabContentProps) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
+            tintColor={colors.ember}
           />
         }
         ListHeaderComponent={
           almostComplete.length > 0 ? (
             <View style={setsStyles.section}>
-              <Text style={setsStyles.sectionTitle}>
-                ALMOST COMPLETE ({almostComplete.length})
-              </Text>
+              <View style={{ marginHorizontal: spacing.md, marginBottom: 8 }}>
+                <Rule
+                  label={`Almost Complete · ${almostComplete.length}`}
+                  accent={colors.ember}
+                />
+              </View>
               {almostComplete.map((set) => (
-                <SetProgressCard key={set.setId} set={set} onPress={() => handleSetPress(set)} />
+                <SetProgressCard
+                  key={set.setId}
+                  set={set}
+                  onPress={() => handleSetPress(set)}
+                />
               ))}
             </View>
           ) : null
@@ -161,16 +187,10 @@ function SetsTabContent({ sets, onRefresh, refreshing }: SetsTabContentProps) {
 const setsStyles = StyleSheet.create({
   list: {
     padding: spacing.md,
+    paddingBottom: 120,
   },
   section: {
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-    letterSpacing: 0.5,
   },
 });
 
@@ -180,9 +200,15 @@ interface RunewordsTabContentProps {
   refreshing: boolean;
 }
 
-function RunewordsTabContent({ runewords, onRefresh, refreshing }: RunewordsTabContentProps) {
+function RunewordsTabContent({
+  runewords,
+  onRefresh,
+  refreshing,
+}: RunewordsTabContentProps) {
   const craftable = runewords.filter((rw) => rw.canCraft);
-  const almostReady = runewords.filter((rw) => !rw.canCraft && rw.missingRunes.length <= 2);
+  const almostReady = runewords.filter(
+    (rw) => !rw.canCraft && rw.missingRunes.length <= 2,
+  );
 
   return (
     <FlatList
@@ -192,14 +218,19 @@ function RunewordsTabContent({ runewords, onRefresh, refreshing }: RunewordsTabC
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.primary}
+          tintColor={colors.ember}
         />
       }
       ListHeaderComponent={
         <>
           {craftable.length > 0 && (
             <View style={rwStyles.section}>
-              <Text style={rwStyles.sectionTitle}>YOU CAN MAKE ({craftable.length})</Text>
+              <View style={{ marginHorizontal: spacing.md, marginBottom: 8 }}>
+                <Rule
+                  label={`Ready to Forge · ${craftable.length}`}
+                  accent={colors.ember}
+                />
+              </View>
               {craftable.map((rw) => (
                 <RunewordCard key={`top-${rw.runewordName}`} runeword={rw} />
               ))}
@@ -207,7 +238,12 @@ function RunewordsTabContent({ runewords, onRefresh, refreshing }: RunewordsTabC
           )}
           {almostReady.length > 0 && (
             <View style={rwStyles.section}>
-              <Text style={rwStyles.sectionTitle}>ALMOST READY ({almostReady.length})</Text>
+              <View style={{ marginHorizontal: spacing.md, marginBottom: 8 }}>
+                <Rule
+                  label={`Almost Ready · ${almostReady.length}`}
+                  accent={colors.gold}
+                />
+              </View>
               {almostReady.map((rw) => (
                 <RunewordCard key={`ar-${rw.runewordName}`} runeword={rw} />
               ))}
@@ -226,57 +262,76 @@ interface RunewordCardProps {
 }
 
 function RunewordCard({ runeword }: RunewordCardProps) {
-  return (
-    <View style={rwStyles.card}>
-      <Text style={[rwStyles.name, runeword.canCraft && rwStyles.nameCraftable]}>
+  const body = (
+    <View
+      style={[
+        rwStyles.card,
+        runeword.canCraft && {
+          borderColor: colors.ember,
+        },
+      ]}
+    >
+      <Text
+        style={[rwStyles.name, runeword.canCraft && rwStyles.nameCraftable]}
+      >
         {runeword.runewordName}
       </Text>
       <Text style={rwStyles.recipe}>{runeword.recipe.join(' + ')}</Text>
       {runeword.missingRunes.length > 0 && (
-        <Text style={rwStyles.missing}>Missing: {runeword.missingRunes.join(', ')}</Text>
+        <Text style={rwStyles.missing}>
+          Missing: {runeword.missingRunes.join(', ')}
+        </Text>
       )}
     </View>
   );
+
+  if (runeword.canCraft) {
+    return (
+      <EmberGlow style={{ marginBottom: spacing.sm }} min={0.35} max={0.7}>
+        {body}
+      </EmberGlow>
+    );
+  }
+  return body;
 }
 
 const rwStyles = StyleSheet.create({
   list: {
     padding: spacing.md,
+    paddingBottom: 120,
   },
   section: {
     marginBottom: spacing.lg,
   },
-  sectionTitle: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-    letterSpacing: 0.5,
-  },
   card: {
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: 4,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderHi,
   },
   name: {
-    fontSize: fontSize.md,
+    fontFamily: typography.displaySemi,
+    fontSize: 16,
     color: colors.runeword,
-    fontWeight: '600',
+    letterSpacing: 2,
     marginBottom: spacing.xs,
   },
   nameCraftable: {
-    color: colors.success,
+    color: colors.ember,
   },
   recipe: {
-    fontSize: fontSize.sm,
+    fontFamily: typography.monoBold,
+    fontSize: 12,
+    letterSpacing: 1.2,
     color: colors.rune,
     marginBottom: spacing.xs,
   },
   missing: {
-    fontSize: fontSize.xs,
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 1,
     color: colors.textDim,
   },
 });
@@ -290,27 +345,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tabBar: {
+  segWrap: {
     flexDirection: 'row',
-    backgroundColor: colors.bgElevated,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-  },
-  tabText: {
-    fontSize: fontSize.md,
-    color: colors.textMuted,
-    fontWeight: '500',
-  },
-  tabTextActive: {
-    color: colors.primary,
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
 });

@@ -18,6 +18,12 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ItemRow } from '@/components/ItemRow';
+import { Chip } from '@/components/ember/Chip';
+import { EmberBG } from '@/components/ember/EmberBG';
+import { EmberBtn } from '@/components/ember/EmberBtn';
+import { FAB } from '@/components/ember/FAB';
+import { RarityDot } from '@/components/ember/RarityDot';
+import { SectionHead } from '@/components/ember/SectionHead';
 import {
   deleteItem,
   getContainer,
@@ -28,7 +34,7 @@ import {
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { getItemById } from '@/lib/itemIndex';
-import { categoryColor, colors, fontSize, radius, spacing } from '@/lib/theme';
+import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
 import type {
   CharacterClass,
   Container,
@@ -227,70 +233,81 @@ export default function ContainerDetailScreen() {
 
   if (!container) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Stack.Screen options={{ title: 'Loading…' }} />
-      </SafeAreaView>
+      <View style={styles.container}>
+        <EmberBG />
+        <SafeAreaView style={{ flex: 1 }}>
+          <Stack.Screen options={{ title: 'Loading…' }} />
+        </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen options={{ title: container.name }} />
+    <View style={styles.container}>
+      <EmberBG />
+      <SafeAreaView
+        style={{ flex: 1 }}
+        edges={['left', 'right', 'bottom']}
+      >
+        <Stack.Screen options={{ title: container.name }} />
 
-      <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>
-          {container.name}
-        </Text>
-        <Text style={styles.sub}>
-          {container.type === 'shared_stash'
-            ? 'Shared Stash'
-            : `${container.class ?? 'Unknown'} · Lv ${container.level ?? '?'}`}{' '}
-          · {items.length} items
-        </Text>
-        {Object.keys(categoryCounts).length > 0 ? (
-          <View style={styles.countsRow}>
-            {(Object.keys(categoryCounts) as ItemCategory[]).map((cat, idx) => (
-              <Text
-                key={cat}
-                style={[styles.countItem, { color: categoryColor(cat) }]}
-              >
-                {idx > 0 ? ' · ' : ''}
-                {categoryCounts[cat]}{' '}
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
-              </Text>
-            ))}
-          </View>
-        ) : null}
-        <View style={styles.headerActions}>
-          {items.length > 0 ? (
-            <Pressable
-              style={[styles.editBtn, selectMode && styles.editBtnActive]}
-              onPress={() => {
-                setSelectMode(!selectMode);
-                setSelectedIds(new Set());
-              }}
-            >
-              <Text
-                style={[
-                  styles.editBtnText,
-                  selectMode && styles.editBtnTextActive,
-                ]}
+        <View style={styles.header}>
+          <Text
+            style={styles.eyebrow}
+            numberOfLines={1}
+          >
+            {container.type === 'shared_stash'
+              ? 'SHARED STASH'
+              : `${(container.class ?? 'unknown').toUpperCase()} · LV ${container.level ?? '?'} · ${String(items.length).padStart(2, '0')} ITEMS`}
+          </Text>
+          <Text style={styles.title} numberOfLines={2}>
+            {container.name}
+          </Text>
+          {Object.keys(categoryCounts).length > 0 ? (
+            <View style={styles.countsRow}>
+              {(Object.keys(categoryCounts) as ItemCategory[]).map((cat) => (
+                <View key={cat} style={styles.countChip}>
+                  <RarityDot rarity={cat} size={7} />
+                  <Text
+                    style={[
+                      styles.countItem,
+                      { color: categoryColor(cat) },
+                    ]}
+                  >
+                    {categoryCounts[cat]}
+                  </Text>
+                  <Text style={styles.countLabel}>
+                    {cat.toUpperCase()}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <View style={styles.headerActions}>
+            {items.length > 0 ? (
+              <EmberBtn
+                size="sm"
+                variant={selectMode ? 'primary' : 'ghost'}
+                onPress={() => {
+                  setSelectMode(!selectMode);
+                  setSelectedIds(new Set());
+                }}
               >
                 {selectMode ? 'Done' : 'Select'}
-              </Text>
-            </Pressable>
-          ) : null}
-          <Pressable style={styles.editBtn} onPress={handleShare}>
-            <Text style={styles.editBtnText}>Share</Text>
-          </Pressable>
-          <Pressable
-            style={styles.editBtn}
-            onPress={() => setEditContainer(true)}
-          >
-            <Text style={styles.editBtnText}>Edit</Text>
-          </Pressable>
+              </EmberBtn>
+            ) : null}
+            <EmberBtn size="sm" variant="ghost" onPress={handleShare}>
+              Share
+            </EmberBtn>
+            <EmberBtn
+              size="sm"
+              variant="outline"
+              onPress={() => setEditContainer(true)}
+            >
+              Edit
+            </EmberBtn>
+          </View>
         </View>
-      </View>
 
       {selectMode && itemsWithEntries.length > 0 ? (
         <Pressable
@@ -316,78 +333,42 @@ export default function ContainerDetailScreen() {
 
       {items.length > 0 ? (
         <View style={{ flexShrink: 0 }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sortRow}
-          style={{ flexGrow: 0 }}
-        >
-          {(['newest', 'name', 'category'] as const).map((s) => (
-            <Pressable
-              key={s}
-              style={[
-                styles.sortChip,
-                sortBy === s && styles.sortChipActive,
-              ]}
-              onPress={() => setSortBy(s)}
-            >
-              <Text
-                style={[
-                  styles.sortChipText,
-                  sortBy === s && styles.sortChipTextActive,
-                ]}
-              >
-                {s === 'newest' ? 'Newest' : s === 'name' ? 'Name' : 'Type'}
-              </Text>
-            </Pressable>
-          ))}
-          {activeCategories.length > 1 ? (
-            <>
-              <View style={styles.sortDivider} />
-              <Pressable
-                style={[
-                  styles.sortChip,
-                  !filterCategory && styles.sortChipActive,
-                ]}
-                onPress={() => setFilterCategory(null)}
-              >
-                <Text
-                  style={[
-                    styles.sortChipText,
-                    !filterCategory && styles.sortChipTextActive,
-                  ]}
-                >
-                  All
-                </Text>
-              </Pressable>
-              {activeCategories.map((cat) => {
-                const active = filterCategory === cat;
-                return (
-                  <Pressable
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sortRow}
+            style={{ flexGrow: 0 }}
+          >
+            {(['newest', 'name', 'category'] as const).map((s) => (
+              <Chip
+                key={s}
+                label={s === 'newest' ? 'Newest' : s === 'name' ? 'Name' : 'Type'}
+                active={sortBy === s}
+                onPress={() => setSortBy(s)}
+              />
+            ))}
+            {activeCategories.length > 1 ? (
+              <>
+                <View style={styles.sortDivider} />
+                <Chip
+                  label="All"
+                  active={!filterCategory}
+                  onPress={() => setFilterCategory(null)}
+                />
+                {activeCategories.map((cat) => (
+                  <Chip
                     key={cat}
-                    style={[
-                      styles.sortChip,
-                      active && { backgroundColor: categoryColor(cat), borderColor: categoryColor(cat) },
-                    ]}
+                    label={cat}
+                    rarity={cat}
+                    active={filterCategory === cat}
                     onPress={() =>
-                      setFilterCategory(active ? null : cat)
+                      setFilterCategory(filterCategory === cat ? null : cat)
                     }
-                  >
-                    <Text
-                      style={[
-                        styles.sortChipText,
-                        { color: active ? colors.bg : categoryColor(cat) },
-                        active && { fontWeight: '700' },
-                      ]}
-                    >
-                      {cat}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </>
-          ) : null}
-        </ScrollView>
+                  />
+                ))}
+              </>
+            ) : null}
+          </ScrollView>
         </View>
       ) : null}
 
@@ -509,17 +490,17 @@ export default function ContainerDetailScreen() {
           </Pressable>
         </View>
       ) : selectMode ? null : (
-        <Pressable
-          style={styles.fab}
+        <FAB
+          icon="plus"
+          bottom={24}
+          right={20}
           onPress={() =>
             router.push({
               pathname: '/modal/add-item',
               params: { containerId: container.id },
             })
           }
-        >
-          <Text style={styles.fabText}>+ Add Item</Text>
-        </Pressable>
+        />
       )}
 
       <EditItemModal
@@ -602,8 +583,9 @@ export default function ContainerDetailScreen() {
           bumpRevision();
           reload();
         }}
-      />
-    </SafeAreaView>
+        />
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -1130,23 +1112,36 @@ function BulkMoveModal({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderHi,
+    gap: 8,
+  },
+  eyebrow: {
+    color: colors.textMuted,
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 2.5,
   },
   headerActions: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   title: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: '700',
+    color: colors.gold,
+    fontFamily: typography.displaySemi,
+    fontSize: 24,
+    letterSpacing: 2,
+    lineHeight: 30,
   },
   sub: {
     color: colors.textMuted,
-    fontSize: fontSize.sm,
+    fontFamily: typography.mono,
+    fontSize: 11,
+    letterSpacing: 1.5,
     marginTop: 2,
   },
   emptyWrap: {
@@ -1447,41 +1442,32 @@ const styles = StyleSheet.create({
   countsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 4,
+    gap: 10,
+    marginTop: 6,
+  },
+  countChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   countItem: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
+    fontFamily: typography.monoBold,
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  countLabel: {
+    color: colors.textMuted,
+    fontFamily: typography.mono,
+    fontSize: 9,
+    letterSpacing: 1.5,
   },
 
   sortRow: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xs,
     gap: 6,
     alignItems: 'center',
-  },
-  sortChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: 6,
-  },
-  sortChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  sortChipText: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    textTransform: 'capitalize',
-  },
-  sortChipTextActive: {
-    color: colors.bg,
-    fontWeight: '700',
   },
   sortDivider: {
     width: 1,

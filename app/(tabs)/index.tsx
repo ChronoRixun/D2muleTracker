@@ -15,15 +15,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContainerCard } from '@/components/ContainerCard';
-import { RealmTag } from '@/components/RealmTag';
-import {
-  archiveContainer,
-  createContainer,
-  createRealm,
-} from '@/db/queries';
+import { Chip } from '@/components/ember/Chip';
+import { Diamond } from '@/components/ember/Diamond';
+import { EmberBG } from '@/components/ember/EmberBG';
+import { EmberBtn } from '@/components/ember/EmberBtn';
+import { FAB } from '@/components/ember/FAB';
+import { Rule } from '@/components/ember/Rule';
+import { SectionHead } from '@/components/ember/SectionHead';
+import { StatsRibbon } from '@/components/ember/StatsRibbon';
+import { archiveContainer, createContainer, createRealm } from '@/db/queries';
 import { useContainers } from '@/hooks/useContainers';
 import { useDatabase } from '@/hooks/useDatabase';
-import { colors, fontSize, radius, spacing } from '@/lib/theme';
+import { colors, typography } from '@/lib/theme';
 import type {
   CharacterClass,
   Container,
@@ -70,6 +73,17 @@ export default function MulesScreen() {
       .filter((s) => s.data.length > 0);
   }, [realms, containers]);
 
+  const totals = useMemo(() => {
+    const totalItems = Object.values(counts).reduce((a, b) => a + b, 0);
+    const mules = containers.filter((c) => c.type === 'character').length;
+    return {
+      items: totalItems,
+      mules,
+      realms: realms.length,
+      stashes: containers.filter((c) => c.type === 'shared_stash').length,
+    };
+  }, [counts, containers, realms]);
+
   const handleArchive = (c: Container) => {
     Alert.alert('Archive container?', `Hide "${c.name}" from the list.`, [
       { text: 'Cancel', style: 'cancel' },
@@ -87,20 +101,21 @@ export default function MulesScreen() {
 
   if (realms.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={['left', 'right']}>
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>Welcome</Text>
-          <Text style={styles.emptyBody}>
-            Create a realm to start cataloging your mules. A realm groups
-            characters by era (Classic / LoD / RoTW), mode, and ladder.
-          </Text>
-          <Pressable
-            style={styles.standaloneBtn}
-            onPress={() => setShowAddRealm(true)}
-          >
-            <Text style={styles.primaryBtnText}>Create a Realm</Text>
-          </Pressable>
-        </View>
+      <View style={styles.root}>
+        <EmberBG />
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <View style={styles.emptyWrap}>
+            <Diamond size="lg" color={colors.ember} />
+            <Text style={styles.emptyTitle}>The Hoard Awaits</Text>
+            <Text style={styles.emptyBody}>
+              Forge a realm to begin cataloging your mules. A realm groups
+              characters by era, mode, and ladder.
+            </Text>
+            <EmberBtn onPress={() => setShowAddRealm(true)} size="lg">
+              Forge a Realm
+            </EmberBtn>
+          </View>
+        </SafeAreaView>
         <AddRealmModal
           visible={showAddRealm}
           onClose={() => setShowAddRealm(false)}
@@ -111,60 +126,76 @@ export default function MulesScreen() {
             setShowAddRealm(false);
           }}
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      {sections.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyBody}>
-            No containers yet. Add your first mule or shared stash.
-          </Text>
-        </View>
-      ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={reload}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
-          renderSectionHeader={({ section }) => (
-            <View style={styles.sectionHeader}>
-              <RealmTag realm={section.realm} />
-            </View>
-          )}
-          renderItem={({ item }) => (
-            <ContainerCard
-              container={item}
-              itemCount={counts[item.id] ?? 0}
-              onPress={() => router.push(`/container/${item.id}`)}
-              onLongPress={() => handleArchive(item)}
-              onArchive={() => handleArchive(item)}
-            />
-          )}
-        />
-      )}
+    <View style={styles.root}>
+      <EmberBG />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <SectionHead eyebrow="The Hoard" title="MULES" />
 
-      <View style={styles.fabRow}>
-        <Pressable
-          style={[styles.fab, styles.fabSecondary]}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+          <StatsRibbon
+            stats={[
+              { label: 'Items', value: totals.items, color: colors.gold },
+              { label: 'Mules', value: totals.mules, color: colors.ember },
+              { label: 'Realms', value: totals.realms, color: colors.gold },
+              { label: 'Stashes', value: totals.stashes, color: colors.gold },
+            ]}
+          />
+        </View>
+
+        {sections.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyBody}>
+              No containers yet. Forge your first mule or shared stash.
+            </Text>
+          </View>
+        ) : (
+          <SectionList
+            sections={sections}
+            keyExtractor={(item) => item.id}
+            stickySectionHeadersEnabled={false}
+            contentContainerStyle={{ paddingBottom: 140, paddingTop: 8 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={reload}
+                tintColor={colors.ember}
+                colors={[colors.ember]}
+              />
+            }
+            renderSectionHeader={({ section }) => (
+              <View style={styles.sectionHeader}>
+                <Rule label={section.realm.name} accent={colors.ember} />
+              </View>
+            )}
+            renderItem={({ item }) => (
+              <ContainerCard
+                container={item}
+                itemCount={counts[item.id] ?? 0}
+                onPress={() => router.push(`/container/${item.id}`)}
+                onLongPress={() => handleArchive(item)}
+                onArchive={() => handleArchive(item)}
+              />
+            )}
+          />
+        )}
+      </SafeAreaView>
+
+      <View style={styles.topLeftHint}>
+        <EmberBtn
+          size="sm"
+          variant="ghost"
           onPress={() => setShowAddRealm(true)}
         >
-          <Text style={styles.fabSecondaryText}>+ Realm</Text>
-        </Pressable>
-        <Pressable style={styles.fab} onPress={() => setShowAddContainer(true)}>
-          <Text style={styles.fabText}>+ Mule</Text>
-        </Pressable>
+          + Realm
+        </EmberBtn>
       </View>
+
+      <FAB onPress={() => setShowAddContainer(true)} icon="plus" />
 
       <AddRealmModal
         visible={showAddRealm}
@@ -187,7 +218,7 @@ export default function MulesScreen() {
           setShowAddContainer(false);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -221,86 +252,77 @@ function AddRealmModal({ visible, onClose, onCreate }: AddRealmModalProps) {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.modalContainer}>
-        <ScrollView contentContainerStyle={styles.modalContent}>
-          <Text style={styles.modalTitle}>New Realm</Text>
+      <View style={styles.root}>
+        <EmberBG />
+        <SafeAreaView style={styles.modalWrap} edges={['top', 'left', 'right']}>
+          <SectionHead eyebrow="Forge" title="NEW REALM" />
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <FieldLabel>Name</FieldLabel>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. RoTW S13 SC Ladder"
+              placeholderTextColor={colors.textDim}
+              value={name}
+              onChangeText={setName}
+            />
 
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. RoTW S13 SC Ladder"
-            placeholderTextColor={colors.textDim}
-            value={name}
-            onChangeText={setName}
-          />
+            <FieldLabel>Era</FieldLabel>
+            <ChipRow
+              value={era}
+              onChange={setEra}
+              options={[
+                { value: 'classic', label: 'Classic' },
+                { value: 'lod', label: 'LoD' },
+                { value: 'rotw', label: 'RoTW' },
+              ]}
+            />
 
-          <Text style={styles.label}>Era</Text>
-          <SegmentedRow
-            value={era}
-            onChange={setEra}
-            options={[
-              { value: 'classic', label: 'Classic' },
-              { value: 'lod', label: 'LoD' },
-              { value: 'rotw', label: 'RoTW' },
-            ]}
-          />
+            <FieldLabel>Mode</FieldLabel>
+            <ChipRow
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'softcore', label: 'Softcore' },
+                { value: 'hardcore', label: 'Hardcore' },
+              ]}
+            />
 
-          <Text style={styles.label}>Mode</Text>
-          <SegmentedRow
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'softcore', label: 'Softcore' },
-              { value: 'hardcore', label: 'Hardcore' },
-            ]}
-          />
+            <FieldLabel>Ladder</FieldLabel>
+            <ChipRow
+              value={ladder}
+              onChange={setLadder}
+              options={[
+                { value: 'ladder', label: 'Ladder' },
+                { value: 'nonladder', label: 'Non-ladder' },
+              ]}
+            />
 
-          <Text style={styles.label}>Ladder</Text>
-          <SegmentedRow
-            value={ladder}
-            onChange={setLadder}
-            options={[
-              { value: 'ladder', label: 'Ladder' },
-              { value: 'nonladder', label: 'Non-ladder' },
-            ]}
-          />
-
-          <Text style={styles.label}>Region</Text>
-          <View style={styles.segmentWrap}>
-            {REGION_OPTIONS.map((o) => (
-              <Pressable
-                key={o.label}
-                style={[
-                  styles.segment,
-                  region === o.value && styles.segmentActive,
-                ]}
-                onPress={() => setRegion(o.value)}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    region === o.value && styles.segmentTextActive,
-                  ]}
-                >
-                  {o.label}
-                </Text>
-              </Pressable>
-            ))}
+            <FieldLabel>Region</FieldLabel>
+            <View style={styles.chipWrap}>
+              {REGION_OPTIONS.map((o) => (
+                <Chip
+                  key={o.label}
+                  label={o.label}
+                  active={region === o.value}
+                  onPress={() => setRegion(o.value)}
+                />
+              ))}
+            </View>
+          </ScrollView>
+          <View style={styles.modalFooter}>
+            <View style={{ flex: 1 }}>
+              <EmberBtn variant="outline" full onPress={onClose}>
+                Cancel
+              </EmberBtn>
+            </View>
+            <View style={{ flex: 1 }}>
+              <EmberBtn full onPress={submit} disabled={!name.trim()}>
+                Forge
+              </EmberBtn>
+            </View>
           </View>
-        </ScrollView>
-        <View style={styles.modalFooter}>
-          <Pressable style={styles.ghostBtn} onPress={onClose}>
-            <Text style={styles.ghostBtnText}>Cancel</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.primaryBtn, !name.trim() && styles.disabled]}
-            onPress={submit}
-            disabled={!name.trim()}
-          >
-            <Text style={styles.primaryBtnText}>Create</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -349,296 +371,192 @@ function AddContainerModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.modalContainer}>
-        <ScrollView contentContainerStyle={styles.modalContent}>
-          <Text style={styles.modalTitle}>New Container</Text>
+      <View style={styles.root}>
+        <EmberBG />
+        <SafeAreaView style={styles.modalWrap} edges={['top', 'left', 'right']}>
+          <SectionHead eyebrow="Forge" title="NEW CONTAINER" />
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <FieldLabel>Realm</FieldLabel>
+            <View style={styles.chipWrap}>
+              {realms.map((r) => (
+                <Chip
+                  key={r.id}
+                  label={r.name}
+                  active={activeRealmId === r.id}
+                  onPress={() => setRealmId(r.id)}
+                />
+              ))}
+            </View>
 
-          <Text style={styles.label}>Realm</Text>
-          <View style={styles.segmentWrap}>
-            {realms.map((r) => (
-              <Pressable
-                key={r.id}
-                style={[
-                  styles.segment,
-                  activeRealmId === r.id && styles.segmentActive,
-                ]}
-                onPress={() => setRealmId(r.id)}
+            <FieldLabel>Type</FieldLabel>
+            <ChipRow
+              value={type}
+              onChange={setType}
+              options={[
+                { value: 'character', label: 'Character' },
+                { value: 'shared_stash', label: 'Shared Stash' },
+              ]}
+            />
+
+            <FieldLabel>Name</FieldLabel>
+            <TextInput
+              style={styles.input}
+              placeholder={
+                type === 'shared_stash'
+                  ? 'e.g. Shared Stash T1'
+                  : 'e.g. RuneMule01'
+              }
+              placeholderTextColor={colors.textDim}
+              autoCapitalize="none"
+              value={name}
+              onChangeText={setName}
+            />
+
+            {type === 'character' ? (
+              <>
+                <FieldLabel>Class</FieldLabel>
+                <View style={styles.chipWrap}>
+                  {CLASSES.map((c) => (
+                    <Chip
+                      key={c}
+                      label={c}
+                      active={charClass === c}
+                      onPress={() => setCharClass(c)}
+                    />
+                  ))}
+                </View>
+
+                <FieldLabel>Level (optional)</FieldLabel>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. 1"
+                  placeholderTextColor={colors.textDim}
+                  keyboardType="number-pad"
+                  value={level}
+                  onChangeText={setLevel}
+                />
+              </>
+            ) : null}
+          </ScrollView>
+          <View style={styles.modalFooter}>
+            <View style={{ flex: 1 }}>
+              <EmberBtn variant="outline" full onPress={onClose}>
+                Cancel
+              </EmberBtn>
+            </View>
+            <View style={{ flex: 1 }}>
+              <EmberBtn
+                full
+                onPress={submit}
+                disabled={!name.trim() || !activeRealmId}
               >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    activeRealmId === r.id && styles.segmentTextActive,
-                  ]}
-                >
-                  {r.name}
-                </Text>
-              </Pressable>
-            ))}
+                Forge
+              </EmberBtn>
+            </View>
           </View>
-
-          <Text style={styles.label}>Type</Text>
-          <SegmentedRow
-            value={type}
-            onChange={setType}
-            options={[
-              { value: 'character', label: 'Character' },
-              { value: 'shared_stash', label: 'Shared Stash' },
-            ]}
-          />
-
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={type === 'shared_stash' ? 'e.g. Shared Stash T1' : 'e.g. RuneMule01'}
-            placeholderTextColor={colors.textDim}
-            autoCapitalize="none"
-            value={name}
-            onChangeText={setName}
-          />
-
-          {type === 'character' ? (
-            <>
-              <Text style={styles.label}>Class</Text>
-              <View style={styles.segmentWrap}>
-                {CLASSES.map((c) => (
-                  <Pressable
-                    key={c}
-                    style={[
-                      styles.segment,
-                      charClass === c && styles.segmentActive,
-                    ]}
-                    onPress={() => setCharClass(c)}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentText,
-                        charClass === c && styles.segmentTextActive,
-                      ]}
-                    >
-                      {c}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <Text style={styles.label}>Level (optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 1"
-                placeholderTextColor={colors.textDim}
-                keyboardType="number-pad"
-                value={level}
-                onChangeText={setLevel}
-              />
-            </>
-          ) : null}
-        </ScrollView>
-        <View style={styles.modalFooter}>
-          <Pressable style={styles.ghostBtn} onPress={onClose}>
-            <Text style={styles.ghostBtnText}>Cancel</Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.primaryBtn,
-              (!name.trim() || !activeRealmId) && styles.disabled,
-            ]}
-            onPress={submit}
-            disabled={!name.trim() || !activeRealmId}
-          >
-            <Text style={styles.primaryBtnText}>Create</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
-// ---- Segmented control ----------------------------------------------------
+// ---- Small helpers --------------------------------------------------------
 
-interface SegmentedRowProps<T extends string> {
+function FieldLabel({ children }: { children: string }) {
+  return <Text style={styles.fieldLabel}>{children.toUpperCase()}</Text>;
+}
+
+interface ChipRowProps<T extends string> {
   value: T;
   onChange: (v: T) => void;
   options: Array<{ value: T; label: string }>;
 }
 
-function SegmentedRow<T extends string>({
-  value,
-  onChange,
-  options,
-}: SegmentedRowProps<T>) {
+function ChipRow<T extends string>({ value, onChange, options }: ChipRowProps<T>) {
   return (
-    <View style={styles.segmentWrap}>
+    <View style={styles.chipWrap}>
       {options.map((o) => (
-        <Pressable
+        <Chip
           key={o.value}
-          style={[styles.segment, value === o.value && styles.segmentActive]}
+          label={o.label}
+          active={value === o.value}
           onPress={() => onChange(o.value)}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              value === o.value && styles.segmentTextActive,
-            ]}
-          >
-            {o.label}
-          </Text>
-        </Pressable>
+        />
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.bg },
   sectionHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 6,
   },
   emptyWrap: {
     flex: 1,
-    padding: spacing.xl,
+    padding: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 18,
   },
   emptyTitle: {
-    color: colors.primary,
-    fontSize: fontSize.xxl,
-    fontWeight: '700',
-    marginBottom: spacing.md,
+    color: colors.gold,
+    fontFamily: typography.displaySemi,
+    fontSize: 26,
+    letterSpacing: 3,
+    textAlign: 'center',
   },
   emptyBody: {
     color: colors.textMuted,
-    fontSize: fontSize.md,
+    fontFamily: typography.hand,
+    fontSize: 15,
     textAlign: 'center',
-    marginBottom: spacing.xl,
     lineHeight: 22,
+    fontStyle: 'italic',
   },
-
-  fabRow: {
+  topLeftHint: {
     position: 'absolute',
-    bottom: spacing.xl,
-    right: spacing.lg,
-    flexDirection: 'row',
-    gap: spacing.sm,
+    top: 70,
+    right: 20,
   },
-  fab: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+  modalWrap: {
+    flex: 1,
   },
-  fabText: {
-    color: colors.bg,
-    fontWeight: '700',
-    fontSize: fontSize.md,
-  },
-  fabSecondary: {
-    backgroundColor: colors.bgElevated,
-  },
-  fabSecondaryText: {
-    color: colors.primary,
-    fontWeight: '700',
-    fontSize: fontSize.md,
-  },
-
-  // Modal
-  modalContainer: { flex: 1, backgroundColor: colors.bg },
-  modalContent: { padding: spacing.lg, paddingBottom: spacing.xl },
-  modalTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    marginBottom: spacing.lg,
+  modalContent: {
+    padding: 20,
+    paddingBottom: 24,
   },
   modalFooter: {
     flexDirection: 'row',
-    padding: spacing.lg,
+    padding: 20,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    gap: spacing.md,
+    gap: 12,
   },
-  label: {
+  fieldLabel: {
     color: colors.textMuted,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 2.5,
+    marginTop: 16,
+    marginBottom: 8,
   },
   input: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.bgSoft,
     color: colors.text,
-    fontSize: fontSize.md,
-    padding: spacing.md,
-    borderRadius: radius.md,
+    fontFamily: typography.body,
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  primaryBtn: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  standaloneBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    alignSelf: 'center',
-  },
-  primaryBtnText: {
-    color: colors.bg,
-    fontWeight: '700',
-    fontSize: fontSize.md,
-  },
-  ghostBtn: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  ghostBtnText: {
-    color: colors.text,
-    fontWeight: '600',
-    fontSize: fontSize.md,
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  segmentWrap: {
+  chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  segment: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  segmentActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  segmentText: {
-    color: colors.textMuted,
-    textTransform: 'capitalize',
-    fontSize: fontSize.sm,
-  },
-  segmentTextActive: {
-    color: colors.bg,
-    fontWeight: '700',
+    gap: 6,
   },
 });
