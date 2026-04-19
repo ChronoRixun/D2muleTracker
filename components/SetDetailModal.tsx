@@ -47,7 +47,13 @@ export function SetDetailModal({ set, visible, onClose }: Props) {
             <View style={{ flex: 1 }}>
               <SectionHead eyebrow="Codex" title={set.setName} />
             </View>
-            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+            <Pressable
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Close set details"
+            >
               <EIcon name="x" size={22} color={colors.text} />
             </Pressable>
           </View>
@@ -64,6 +70,10 @@ export function SetDetailModal({ set, visible, onClose }: Props) {
                   style={[styles.piece, isOwned && styles.pieceOwned]}
                   onPress={() => handlePiecePress(piece.id, isOwned)}
                   disabled={!isOwned}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${piece.name}${isOwned ? ', owned' : ', not owned'}`}
+                  accessibilityHint={isOwned ? 'View this piece in your hoard' : undefined}
+                  accessibilityState={{ disabled: !isOwned }}
                 >
                   <View style={styles.pieceLeft}>
                     {isOwned ? (

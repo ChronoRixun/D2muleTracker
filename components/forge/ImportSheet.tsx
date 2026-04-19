@@ -59,6 +59,7 @@ export function ImportSheet({
             onChangeText={setImportText}
             placeholder="{ ...backup json... }"
             placeholderTextColor={colors.textDim}
+            accessibilityLabel="Paste backup JSON"
           />
         </View>
         <View style={styles.footer}>

@@ -218,7 +218,13 @@ export function TradeExportModal({
             <View style={{ flex: 1 }}>
               <SectionHead eyebrow="Market" title="TRADE EXPORT" />
             </View>
-            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+            <Pressable
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Close trade export"
+            >
               <Text style={styles.closeText}>Close</Text>
             </Pressable>
           </View>
@@ -296,6 +302,9 @@ export function TradeExportModal({
                           checked && styles.selectRowActive,
                         ]}
                         onPress={() => toggle(item.id)}
+                        accessibilityRole="checkbox"
+                        accessibilityLabel={`${entry.name}${item.notes ? `, ${item.notes}` : ''}`}
+                        accessibilityState={{ checked }}
                       >
                         <View
                           style={[

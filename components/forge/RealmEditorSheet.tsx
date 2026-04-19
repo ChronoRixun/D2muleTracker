@@ -71,14 +71,24 @@ export function RealmEditorSheet({ target, onClose, onSave, onDelete }: Props) {
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss realm editor"
+        />
         <SafeAreaView edges={['bottom']}>
           <AnvilPanel glow style={styles.sheet}>
             <View style={styles.header}>
               <EIcon name="fire" size={16} color={colors.ember} />
               <Text style={styles.title}>{isNew ? 'BIND A REALM' : 'EDIT REALM'}</Text>
               <View style={{ flex: 1 }} />
-              <Pressable onPress={onClose} hitSlop={10}>
+              <Pressable
+                onPress={onClose}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Close realm editor"
+              >
                 <EIcon name="x" size={16} color={colors.textDim} />
               </Pressable>
             </View>
@@ -90,6 +100,7 @@ export function RealmEditorSheet({ target, onClose, onSave, onDelete }: Props) {
                 placeholder="e.g. RoTW S4 SC Ladder"
                 placeholderTextColor={colors.textDim}
                 style={styles.input}
+                accessibilityLabel="Realm name"
               />
             </Field>
 

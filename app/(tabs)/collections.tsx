@@ -435,6 +435,11 @@ function RunewordCard({ runeword, entry, onPress }: RunewordCardProps) {
   const body = (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${runeword.runewordName}, ${baseLabel}, ${ownedCount} of ${runeSlots.length} runes owned${
+        runeword.canCraft ? ', ready to forge' : ''
+      }`}
+      accessibilityHint="View runeword recipe"
       style={[
         rwStyles.card,
         runeword.canCraft && {

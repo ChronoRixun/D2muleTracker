@@ -80,7 +80,12 @@ export function TagInput({
       {value.length > 0 ? (
         <View style={styles.selected}>
           {value.map((t) => (
-            <Pressable key={t} onPress={() => remove(t)}>
+            <Pressable
+              key={t}
+              onPress={() => remove(t)}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove tag ${t}`}
+            >
               <View style={styles.tagChip}>
                 <Text style={styles.tagText}>{t}</Text>
                 <Text style={styles.tagX}>×</Text>
@@ -101,6 +106,8 @@ export function TagInput({
         autoCorrect={false}
         returnKeyType="done"
         blurOnSubmit={false}
+        accessibilityLabel="Add tag"
+        accessibilityHint="Type a tag name and press done"
       />
 
       {suggestions.length > 0 ? (

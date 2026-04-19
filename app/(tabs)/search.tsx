@@ -247,6 +247,8 @@ export default function SearchScreen() {
             placeholderTextColor={colors.textDim}
             value={query}
             onChangeText={setQuery}
+            accessibilityRole="search"
+            accessibilityLabel="Search items by name, nickname, or roll notes"
           />
         </View>
 
@@ -345,6 +347,11 @@ export default function SearchScreen() {
             <Pressable
               style={styles.hit}
               onPress={() => router.push(`/container/${hit.container.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`${hit.entry.name}, ${hit.entry.category}, in ${hit.container.name}${
+                hit.item.notes ? `, notes ${hit.item.notes}` : ''
+              }`}
+              accessibilityHint="Open container"
             >
               <View
                 style={[

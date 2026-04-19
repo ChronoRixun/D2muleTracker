@@ -24,9 +24,18 @@ interface Props {
   icon?: EIconName;
   bottom?: number;
   right?: number;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
-export function FAB({ onPress, icon = 'plus', bottom = 94, right = 20 }: Props) {
+export function FAB({
+  onPress,
+  icon = 'plus',
+  bottom = 94,
+  right = 20,
+  accessibilityLabel = 'Add new item',
+  accessibilityHint,
+}: Props) {
   const cfg = useMotionConfig();
   const animated = cfg.itemGlowPulse;
   const pulse = useSharedValue(0.85);
@@ -61,6 +70,9 @@ export function FAB({ onPress, icon = 'plus', bottom = 94, right = 20 }: Props) 
       onPressOut={() => {
         scale.value = withTiming(1, { duration: 120 });
       }}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       style={[styles.root, { bottom, right }]}
     >
       <Animated.View style={[styles.glow, glowStyle]} />

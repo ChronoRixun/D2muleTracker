@@ -1,4 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type AccessibilityActionEvent,
+} from 'react-native';
 
 import { Chip } from '@/components/ember/Chip';
 import { categoryColor, colors, fontSize, radius, spacing, typography } from '@/lib/theme';
@@ -18,6 +24,8 @@ interface Props {
   rightHint?: string;
   onPress?: () => void;
   onLongPress?: () => void;
+  onDelete?: () => void;
+  accessibilityLabel?: string;
 }
 
 export function ItemRow({
@@ -31,13 +39,39 @@ export function ItemRow({
   rightHint,
   onPress,
   onLongPress,
+  onDelete,
+  accessibilityLabel,
 }: Props) {
   const color = categoryColor(entry.category);
+
+  const a11yLabel =
+    accessibilityLabel ??
+    [
+      entry.name,
+      entry.category,
+      quantity && quantity > 1 ? `quantity ${quantity}` : null,
+      sockets != null ? `${sockets} sockets` : null,
+      tags && tags.length > 0 ? `tagged ${tags.join(', ')}` : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+  const handleAccessibilityAction = onDelete
+    ? (event: AccessibilityActionEvent) => {
+        if (event.nativeEvent.actionName === 'delete') onDelete();
+      }
+    : undefined;
 
   return (
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityActions={
+        onDelete ? [{ name: 'delete', label: 'Delete item' }] : undefined
+      }
+      onAccessibilityAction={handleAccessibilityAction}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
       <View style={[styles.colorBar, { backgroundColor: color }]} />

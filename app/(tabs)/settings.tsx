@@ -232,6 +232,8 @@ export default function SettingsScreen() {
                   onPress={() => setEditing('new')}
                   style={styles.bindNew}
                   hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel="Bind new realm"
                 >
                   <EIcon name="plus" size={11} color={colors.ember} />
                   <Text style={styles.bindNewText}>BIND NEW</Text>
@@ -319,6 +321,7 @@ export default function SettingsScreen() {
               label="Share JSON"
               detail="via system share sheet"
               onPress={handleExport}
+              accessibilityLabel="Share backup as JSON via system share sheet"
             />
             <DataRow
               icon="download"
@@ -326,12 +329,14 @@ export default function SettingsScreen() {
               detail={backupDetail}
               strong
               onPress={handleWriteBackupFile}
+              accessibilityLabel={`Save backup file to device, last backup ${backupDetail}`}
             />
             <DataRow
               icon="scroll"
               label="Import from JSON"
               detail="merge or replace"
               onPress={() => setImportVisible(true)}
+              accessibilityLabel="Import from JSON, merge or replace existing data"
             />
           </View>
 
@@ -470,6 +475,9 @@ function RealmCard({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${realm.name} realm, ${mules} mules, ${items} items, ${runes} runes`}
+      accessibilityHint="Edit realm"
       style={[
         styles.realmCard,
         {

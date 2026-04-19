@@ -83,6 +83,7 @@ export default function TabsLayout() {
         options={{
           title: 'The Hoard',
           headerShown: false,
+          tabBarAccessibilityLabel: 'Mules tab, view your realms and characters',
           tabBarIcon: ({ focused }) => <TabGlyph name="index" focused={focused} />,
         }}
       />
@@ -91,6 +92,7 @@ export default function TabsLayout() {
         options={{
           title: 'Seek',
           headerShown: false,
+          tabBarAccessibilityLabel: 'Seek tab, search across all items',
           tabBarIcon: ({ focused }) => (
             <TabGlyph name="search" focused={focused} />
           ),
@@ -101,6 +103,7 @@ export default function TabsLayout() {
         options={{
           title: 'Codex',
           headerShown: false,
+          tabBarAccessibilityLabel: 'Codex tab, browse runewords and sets',
           tabBarIcon: ({ focused }) => (
             <TabGlyph name="collections" focused={focused} />
           ),
@@ -111,6 +114,7 @@ export default function TabsLayout() {
         options={{
           title: 'Forge',
           headerShown: false,
+          tabBarAccessibilityLabel: 'Forge tab, settings and backup',
           tabBarIcon: ({ focused }) => (
             <TabGlyph name="settings" focused={focused} />
           ),

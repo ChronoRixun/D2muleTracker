@@ -18,9 +18,16 @@ export function SetProgressCard({ set, onPress }: Props) {
     onPress();
   };
 
+  const a11yLabel = `${set.setName} set, ${set.ownedPieces} of ${set.totalPieces} pieces owned${
+    isComplete ? ', complete' : ''
+  }`;
+
   return (
     <Pressable
       onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityHint="View set details"
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={styles.header}>

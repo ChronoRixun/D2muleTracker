@@ -107,7 +107,13 @@ function TierCard({ tier, active, onPress }: TierCardProps) {
   const litCount = tier === 'subtle' ? 1 : tier === 'nightmare' ? 2 : 3;
 
   return (
-    <Pressable onPress={onPress} style={styles.cardPress}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityLabel={`${cfg.label} motion intensity, ${cfg.sub}`}
+      accessibilityState={{ selected: active }}
+      style={styles.cardPress}
+    >
       <View
         style={[
           styles.card,

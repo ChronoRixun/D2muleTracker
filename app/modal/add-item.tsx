@@ -147,6 +147,8 @@ export default function AddItemModal() {
           <Pressable
             style={styles.changeBtn}
             onPress={() => setSelected(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Change item"
           >
             <Text style={styles.changeBtnText}>Change item</Text>
           </Pressable>
@@ -164,6 +166,9 @@ export default function AddItemModal() {
                     sockets === i && styles.socketBtnActive,
                   ]}
                   onPress={() => setSockets(i)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${i} sockets`}
+                  accessibilityState={{ selected: sockets === i }}
                 >
                   <Text
                     style={[
@@ -207,6 +212,7 @@ export default function AddItemModal() {
           value={notes}
           onChangeText={setNotes}
           multiline
+          accessibilityLabel="Item notes"
         />
 
         <Text style={styles.label}>Quantity</Text>
@@ -215,6 +221,7 @@ export default function AddItemModal() {
           keyboardType="number-pad"
           value={quantity}
           onChangeText={setQuantity}
+          accessibilityLabel="Item quantity"
         />
 
           <Text style={styles.label}>Location</Text>

@@ -46,15 +46,38 @@ export function ContainerCard({
   };
 
   const renderRightActions = () => (
-    <Pressable style={styles.archiveBtn} onPress={onArchive}>
+    <Pressable
+      style={styles.archiveBtn}
+      onPress={onArchive}
+      accessibilityRole="button"
+      accessibilityLabel={`Archive ${container.name}`}
+    >
       <Text style={styles.archiveText}>ARCHIVE</Text>
     </Pressable>
   );
+
+  const typeLabel = isStash ? 'shared stash' : 'mule';
+  const a11yLabel = isStash
+    ? `${container.name}, shared stash, ${itemCount} items`
+    : `${container.name}, ${container.class ?? 'unknown'} level ${container.level ?? 'unset'}, ${itemCount} items`;
 
   const card = (
     <Pressable
       onPress={handlePress}
       onLongPress={onLongPress}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityHint={`Open ${typeLabel} detail`}
+      accessibilityActions={
+        onArchive ? [{ name: 'activate' }, { name: 'longpress' }] : undefined
+      }
+      onAccessibilityAction={
+        onArchive
+          ? (event) => {
+              if (event.nativeEvent.actionName === 'longpress') onArchive();
+            }
+          : undefined
+      }
       style={({ pressed }) => [
         styles.card,
         { borderColor: isStash ? colors.goldDim : colors.borderHi },

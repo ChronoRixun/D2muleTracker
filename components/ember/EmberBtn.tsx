@@ -36,6 +36,8 @@ interface Props {
   style?: StyleProp<ViewStyle>;
   leading?: ReactNode;
   trailing?: ReactNode;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const SIZE_STYLES: Record<
@@ -58,6 +60,8 @@ export function EmberBtn({
   style,
   leading,
   trailing,
+  accessibilityLabel,
+  accessibilityHint,
 }: Props) {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
@@ -78,6 +82,10 @@ export function EmberBtn({
   const sizing = SIZE_STYLES[size];
   const textColor = textColorFor(variant);
 
+  const inferredLabel =
+    accessibilityLabel ??
+    (typeof children === 'string' ? children : undefined);
+
   return (
     <Pressable
       onPress={handlePress}
@@ -90,6 +98,10 @@ export function EmberBtn({
         opacity.value = withTiming(1, { duration: 120 });
       }}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={inferredLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: !!disabled }}
       style={[
         {
           alignSelf: full ? 'stretch' : 'flex-start',

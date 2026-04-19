@@ -84,7 +84,13 @@ export function RunewordDetailModal({
             <View style={{ flex: 1 }}>
               <SectionHead eyebrow="Codex" title={runewordName} />
             </View>
-            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+            <Pressable
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Close runeword details"
+            >
               <EIcon name="x" size={22} color={colors.text} />
             </Pressable>
           </View>
