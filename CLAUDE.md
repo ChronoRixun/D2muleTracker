@@ -34,7 +34,7 @@ Offline-first Diablo 2 Resurrected mule inventory tracker. Lets players catalog 
 
 ```
 app/                    Expo Router screens
-  (tabs)/               Tab navigator (Mules, Find Item, Settings)
+  (tabs)/               Tab navigator (Hoard, Seek, Codex, Forge)
   container/[id].tsx    Container detail (items list, sort, filter, bulk select)
   modal/add-item.tsx    Add item modal with autocomplete + variable stats
 assets/data/            Bundled item-index.json
@@ -141,12 +141,13 @@ Update the author names once you know which specific icons were selected.
 - [x] Phase 3a — Variable stats (shows which rolls vary and their ranges when adding/editing items)
 - [x] Phase 3b — Interactive Codex (runewords/sets with recipes, properties, set bonuses), Tags UI (display on items, filter in Find Item, bulk operations), Trade Export (shareable text lists)
 - [x] Motion Intensity tiers — Subtle/Nightmare/Hellforge animation modes (ember particles, heat shimmer, molten glow effects)
+- [x] Tag filtering fix in Find Item (SEEK) — tag-only queries now return matching items
+- [x] Forge tab redesign — "The Anvil" hero panel with live aggregate stats and promoted Realms/Rites layout
 
 ### Known Bugs
-- [ ] **Tag filtering in Find Item not working** — Items with tags display correctly in container views, but selecting tag filters in Find Item (SEEK tab) returns no results. The tag data is saved to the database, but the search query isn't filtering by tags correctly.
+_None currently tracked._
 
 ### Next
-- [ ] Fix tag filtering bug (priority)
 - [ ] Phase 4 — Item type icons (game-icons.net SVGs), snapshot/share export
 - [ ] Phase 5 — App Store prep (App Store listing, screenshots)
 
