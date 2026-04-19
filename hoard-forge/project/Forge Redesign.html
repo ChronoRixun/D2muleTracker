@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=1800"/>
+  <title>Hoard · Forge Redesign</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Cinzel:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin:0; padding:0; background:#050302; -webkit-font-smoothing:antialiased; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    input, textarea, button { font-family: inherit; }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script src="ember/data.js"></script>
+  <script type="text/babel" src="ios-frame.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="ember/tokens.jsx"></script>
+  <script type="text/babel" src="ember/icons.jsx"></script>
+  <script type="text/babel" src="ember/atoms.jsx"></script>
+  <script type="text/babel" src="forge/forge-data.jsx"></script>
+  <script type="text/babel" src="forge/forge-atoms.jsx"></script>
+  <script type="text/babel" src="forge/forge-v1-anvil.jsx"></script>
+  <script type="text/babel" src="forge/forge-v0-current.jsx"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const TWEAKS = /*EDITMODE-BEGIN*/{
+      "motion": "hellforge",
+      "showBefore": true
+    }/*EDITMODE-END*/;
+
+    function ScreenShell({ motion, children }) {
+      const T = window.ET.color;
+      return (
+        <div style={{
+          position:'relative', width:'100%', height:'100%', overflow:'hidden',
+          background:T.bg, display:'flex', flexDirection:'column',
+        }}>
+          <EmberBG motion={motion}/>
+          <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column', flex:1, minHeight:0 }}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+    window.ScreenShell = ScreenShell;
+
+    const Art = ({ label, children, tint, w = 390, h = 844 }) => (
+      <DCArtboard label={label} width={w} height={h} style={{background:'#050302', borderRadius:48}}>
+        <IOSDevice width={w} height={h} dark>{children}</IOSDevice>
+      </DCArtboard>
+    );
+
+    function App() {
+      const [tweaks, setTweaks] = React.useState(TWEAKS);
+      const [editing, setEditing] = React.useState(false);
+
+      React.useEffect(() => {
+        const onMsg = (e) => {
+          if (!e.data || typeof e.data !== 'object') return;
+          if (e.data.type === '__activate_edit_mode') setEditing(true);
+          if (e.data.type === '__deactivate_edit_mode') setEditing(false);
+        };
+        window.addEventListener('message', onMsg);
+        window.parent.postMessage({type:'__edit_mode_available'}, '*');
+        return () => window.removeEventListener('message', onMsg);
+      }, []);
+
+      const setTweak = (k, v) => {
+        setTweaks(prev => {
+          const next = { ...prev, [k]: v };
+          window.parent.postMessage({type:'__edit_mode_set_keys', edits:{[k]:v}}, '*');
+          return next;
+        });
+      };
+
+      const tier = tweaks.motion;
+      const mot = tier === 'subtle' ? 'subtle' : 'full';
+      const showBefore = tweaks.showBefore !== false;
+
+      return (
+        <>
+          <DesignCanvas style={{background:'#0a0504', backgroundImage:'radial-gradient(1200px 800px at 50% 0%, rgba(255,80,32,0.07), transparent 70%)'}}>
+            <div style={{padding:'0 60px 24px', maxWidth:1400}}>
+              <div style={{fontSize:10, letterSpacing:4, color:'#ff8038', fontFamily:'"JetBrains Mono", monospace', fontWeight:700, marginBottom:10}}>
+                ◆ FORGE · THE ANVIL · v1.1
+              </div>
+              <div style={{fontSize:44, fontWeight:700, color:'#e8b048', letterSpacing:2,
+                fontFamily:'"Cinzel", serif', textShadow:'0 0 30px rgba(255,80,32,0.5)', lineHeight:1}}>
+                THE FORGE · REFORGED
+              </div>
+              <div style={{fontSize:15, color:'rgba(240,200,150,0.7)', marginTop:10, maxWidth:820, lineHeight:1.6,
+                fontFamily:'"Cormorant Garamond", serif', fontStyle:'italic'}}>
+                Committed direction: <b style={{color:'#e8b048', fontStyle:'normal'}}>The Anvil</b>. A hero panel at top
+                shows the app's state (realms · mules · items · runes · last backup). Realms are promoted to their own
+                card list. Appearance toggles collapse into a single <i>Rites</i> block, with the proper three-tier
+                Motion Intensity picker — Subtle · Nightmare · Hellforge — lifted from the v1.1 <code style={{color:'#ff8038', fontStyle:'normal'}}>MotionIntensityPicker</code> spec.
+              </div>
+              <div style={{fontSize:13, color:'rgba(240,200,150,0.55)', marginTop:14, maxWidth:820, lineHeight:1.5,
+                fontFamily:'"JetBrains Mono", monospace', letterSpacing:1}}>
+                <b style={{color:'#ff8038'}}>WHAT CHANGED FROM BEFORE</b><br/>
+                · Realms promoted from hidden row to primary section with era/mode/ladder tags at a glance.<br/>
+                · Appearance is one block, titled <i>Rites</i>, anchored by the 3-tier motion picker.<br/>
+                · Motion tiers match v1.1: <b>Subtle</b> (1 flame · gold), <b>Nightmare</b> (2 flames · ember), <b>Hellforge</b> (3 flames · #ff8800). Default: Hellforge.<br/>
+                · Backup gets real context (last backup age, size, what's in it).<br/>
+                · About collapses to a short epitaph + credits.
+              </div>
+            </div>
+
+            {showBefore && (
+              <DCSection
+                title="Before — current Forge"
+                subtitle="Flat list. No visual center. Realms buried. No forge metaphor."
+              >
+                <Art label="Current"><ForgeCurrent motion={mot==='subtle'?'subtle':'full'}/></Art>
+              </DCSection>
+            )}
+
+            <DCSection
+              title="The Anvil — top of screen"
+              subtitle="Hero anvil panel (realms · mules · items · runes · last backup). Realms promoted to a card list with era/mode/ladder/region tags. Below: Rites block anchored by the three-tier Motion Intensity picker, then a Density and Default Sort row."
+            >
+              <Art label="Forge · top"><ForgeV1 motion={mot} tier={tier}/></Art>
+              <Art label="Forge · scrolled to Rites"><ForgeV1 motion={mot} tier={tier} scrolled/></Art>
+              <Art label="Bind Realm sheet"><ForgeV1RealmSheet motion={mot}/></Art>
+            </DCSection>
+
+            <div style={{padding:'20px 60px 80px', maxWidth:1200}}>
+              <div style={{fontSize:12, letterSpacing:3, color:'#ff8038', fontFamily:'"JetBrains Mono", monospace', fontWeight:700, marginBottom:10}}>
+                ◆ NOTES
+              </div>
+              <ul style={{fontSize:14, color:'rgba(240,200,150,0.8)', lineHeight:1.7, paddingLeft:20,
+                fontFamily:'Inter, system-ui, sans-serif', maxWidth:820}}>
+                <li>All three use the existing Ember tokens, EmberBtn, Chip, Rule, SectionHead — no new primitives needed in the RN app.</li>
+                <li>Content matches the real <code>settings.tsx</code>: realms, motion intensity, density, export/save-backup/import, rate app, replay tutorial, about/credits.</li>
+                <li>Numbers in the hero ribbon are illustrative; wire them to <code>listRealms</code>, <code>exportAll</code> size, and backup file mtime.</li>
+                <li>Use the Tweaks panel (toolbar toggle) to isolate a single direction and compare 1:1 with the current screen.</li>
+              </ul>
+            </div>
+          </DesignCanvas>
+
+          {editing && <TweaksPanel tweaks={tweaks} setTweak={setTweak}/>}
+        </>
+      );
+    }
+
+    function TweaksPanel({ tweaks, setTweak }) {
+      return (
+        <div style={{
+          position:'fixed', top:20, right:20, width:300, zIndex:9999,
+          background:'rgba(13,7,5,0.97)', border:'1px solid #3d1e0c',
+          boxShadow:'0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(255,80,32,0.15)',
+          fontFamily:'"Cinzel", serif', backdropFilter:'blur(10px)',
+        }}>
+          <div style={{
+            padding:'14px 16px', borderBottom:'1px solid #3d1e0c',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            background:'linear-gradient(90deg, rgba(255,80,32,0.15), transparent)',
+          }}>
+            <div style={{color:'#e8b048', fontSize:14, fontWeight:700, letterSpacing:3, textShadow:'0 0 10px rgba(255,80,32,0.5)'}}>
+              TWEAKS
+            </div>
+            <div style={{color:'#9a7a5c', fontSize:10, letterSpacing:2, fontFamily:'"JetBrains Mono", monospace'}}>
+              FORGE
+            </div>
+          </div>
+
+          <PanelSection label="MOTION INTENSITY">
+            {[{v:'subtle',l:'Subtle',d:'Normal Difficulty · clean'},
+              {v:'nightmare',l:'Nightmare',d:'Dark · Ominous · embers'},
+              {v:'hellforge',l:'Hellforge',d:'Maximum · molten · sparks'}].map(o => (
+              <Radio key={o.v} active={tweaks.motion===o.v} onClick={()=>setTweak('motion', o.v)} label={o.l} desc={o.d}/>
+            ))}
+          </PanelSection>
+
+          <PanelSection label="COMPARE" last>
+            <Radio active={tweaks.showBefore !== false} onClick={()=>setTweak('showBefore', !(tweaks.showBefore !== false))} label={tweaks.showBefore !== false ? 'Hide "before"' : 'Show "before"'} desc="current Forge tab for reference"/>
+          </PanelSection>
+        </div>
+      );
+    }
+
+    function PanelSection({ label, children, last }) {
+      return (
+        <div style={{padding:'14px 16px', borderBottom: last ? 'none' : '1px solid #2a1408'}}>
+          <div style={{color:'#9a7a5c', fontSize:10, letterSpacing:2.5, fontFamily:'"JetBrains Mono", monospace', fontWeight:600}}>{label}</div>
+          <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:8}}>{children}</div>
+        </div>
+      );
+    }
+
+    function Radio({ active, onClick, label, desc }) {
+      return (
+        <div onClick={onClick} style={{
+          padding:'10px 12px', cursor:'pointer',
+          border:`1px solid ${active?'#e8b048':'#2a1408'}`,
+          background: active?'rgba(232,176,72,0.08)':'transparent',
+          display:'flex', alignItems:'center', gap:10,
+        }}>
+          <div style={{
+            width:12, height:12, borderRadius:'50%',
+            border:`2px solid ${active?'#ff5020':'#5a4030'}`,
+            background: active?'#ff5020':'transparent',
+            boxShadow: active?'0 0 8px rgba(255,80,32,0.6)':'none',
+            flexShrink:0,
+          }}/>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{color: active?'#e8b048':'#f0d8b8', fontFamily:'"Cinzel", serif', fontSize:13, fontWeight:600, letterSpacing:1}}>
+              {label}
+            </div>
+            <div style={{color:'#9a7a5c', fontSize:10, fontFamily:'Inter, system-ui, sans-serif', marginTop:1, fontStyle:'italic'}}>
+              {desc}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
