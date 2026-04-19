@@ -69,6 +69,8 @@ export function ItemAutocomplete({
         placeholderTextColor={colors.textDim}
         value={query}
         onChangeText={setQuery}
+        accessibilityRole="search"
+        accessibilityLabel="Search item database"
       />
       {query.length < 2 ? (
         showRecent ? (

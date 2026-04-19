@@ -19,13 +19,26 @@ interface Props {
   detail: string;
   strong?: boolean;
   onPress: () => void;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
-export function DataRow({ icon, label, detail, strong, onPress }: Props) {
+export function DataRow({
+  icon,
+  label,
+  detail,
+  strong,
+  onPress,
+  accessibilityLabel,
+  accessibilityHint,
+}: Props) {
   const accent = strong ? colors.ember : colors.gold;
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? `${label}, ${detail}`}
+      accessibilityHint={accessibilityHint}
       style={[
         styles.row,
         {

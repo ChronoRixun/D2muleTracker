@@ -323,6 +323,9 @@ export default function ContainerDetailScreen() {
                   setSelectMode(!selectMode);
                   setSelectedIds(new Set());
                 }}
+                accessibilityLabel={
+                  selectMode ? 'Exit select mode' : 'Select items for bulk operations'
+                }
               >
                 {selectMode ? 'Done' : 'Select'}
               </EmberBtn>
@@ -332,17 +335,24 @@ export default function ContainerDetailScreen() {
                 size="sm"
                 variant="ghost"
                 onPress={() => setTradeExportOpen(true)}
+                accessibilityLabel="Export trade list"
               >
                 Trade
               </EmberBtn>
             ) : null}
-            <EmberBtn size="sm" variant="ghost" onPress={handleShare}>
+            <EmberBtn
+              size="sm"
+              variant="ghost"
+              onPress={handleShare}
+              accessibilityLabel="Share container data"
+            >
               Share
             </EmberBtn>
             <EmberBtn
               size="sm"
               variant="outline"
               onPress={() => setEditContainer(true)}
+              accessibilityLabel="Edit container name"
             >
               Edit
             </EmberBtn>
@@ -361,6 +371,12 @@ export default function ContainerDetailScreen() {
               );
             }
           }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            selectedIds.size === itemsWithEntries.length
+              ? 'Deselect all items'
+              : 'Select all items'
+          }
         >
           <Text style={styles.selectAllText}>
             {selectedIds.size === itemsWithEntries.length
@@ -504,6 +520,9 @@ export default function ContainerDetailScreen() {
                 <Pressable
                   style={styles.selectRow}
                   onPress={() => toggleSelect(row.item.id)}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={`${row.entry.name}, ${row.entry.category}`}
+                  accessibilityState={{ checked: selected }}
                 >
                   <View
                     style={[
@@ -550,17 +569,23 @@ export default function ContainerDetailScreen() {
           <Pressable
             style={styles.bulkMoveBtn}
             onPress={() => setBulkMoveTarget([...selectedIds])}
+            accessibilityRole="button"
+            accessibilityLabel={`Move ${selectedIds.size} selected items`}
           >
             <Text style={styles.bulkBtnText}>Move {selectedIds.size}</Text>
           </Pressable>
           <Pressable
             style={styles.bulkTagBtn}
             onPress={() => setBulkTagTarget([...selectedIds])}
+            accessibilityRole="button"
+            accessibilityLabel={`Tag ${selectedIds.size} selected items`}
           >
             <Text style={styles.bulkBtnText}>Tag {selectedIds.size}</Text>
           </Pressable>
           <Pressable
             style={styles.bulkDeleteBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${selectedIds.size} selected items`}
             onPress={() => {
               Alert.alert(
                 `Delete ${selectedIds.size} items?`,
@@ -733,7 +758,12 @@ function SwipeableItemRow({
   onDelete: () => void;
 }) {
   const renderRightActions = () => (
-    <Pressable style={styles.swipeDeleteBtn} onPress={onDelete}>
+    <Pressable
+      style={styles.swipeDeleteBtn}
+      onPress={onDelete}
+      accessibilityRole="button"
+      accessibilityLabel={`Delete ${entry.name}`}
+    >
       <Text style={styles.swipeDeleteText}>Delete</Text>
     </Pressable>
   );
@@ -754,6 +784,7 @@ function SwipeableItemRow({
         activeTags={activeTag ? [activeTag] : undefined}
         onTagPress={onTagPress}
         onPress={onPress}
+        onDelete={onDelete}
       />
     </ReanimatedSwipeable>
   );
@@ -776,6 +807,9 @@ function DenseItemCell({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole={selectMode ? 'checkbox' : 'button'}
+      accessibilityLabel={`${entry.name}${entry.baseName && entry.baseName !== entry.name ? `, ${entry.baseName}` : ''}`}
+      accessibilityState={selectMode ? { checked: selected } : undefined}
       style={({ pressed }) => [
         styles.denseCell,
         selectMode && selected && styles.denseCellSelected,
@@ -865,6 +899,9 @@ function EditContainerModal({
                 key={t}
                 style={[styles.segment, type === t && styles.segmentActive]}
                 onPress={() => setType(t)}
+                accessibilityRole="radio"
+                accessibilityLabel={t === 'character' ? 'Character' : 'Shared Stash'}
+                accessibilityState={{ selected: type === t }}
               >
                 <Text
                   style={[
@@ -885,6 +922,7 @@ function EditContainerModal({
             onChangeText={setName}
             autoCapitalize="none"
             placeholderTextColor={colors.textDim}
+            accessibilityLabel="Container name"
           />
 
           {type === 'character' ? (
@@ -899,6 +937,9 @@ function EditContainerModal({
                       charClass === c && styles.segmentActive,
                     ]}
                     onPress={() => setCharClass(c)}
+                    accessibilityRole="radio"
+                    accessibilityLabel={c}
+                    accessibilityState={{ selected: charClass === c }}
                   >
                     <Text
                       style={[
@@ -920,18 +961,27 @@ function EditContainerModal({
                 onChangeText={setLevel}
                 placeholder="e.g. 1"
                 placeholderTextColor={colors.textDim}
+                accessibilityLabel="Character level"
               />
             </>
           ) : null}
 
           <View style={styles.sheetRow}>
-            <Pressable style={styles.ghostBtn} onPress={onClose}>
+            <Pressable
+              style={styles.ghostBtn}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <Text style={styles.ghostBtnText}>Cancel</Text>
             </Pressable>
             <Pressable
               style={[styles.primaryBtn, !name.trim() && styles.disabled]}
               onPress={submit}
               disabled={!name.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Save container"
+              accessibilityState={{ disabled: !name.trim() }}
             >
               <Text style={styles.primaryBtnText}>Save</Text>
             </Pressable>
@@ -1013,6 +1063,9 @@ function EditItemModal({
                       sockets === i && styles.socketBtnActive,
                     ]}
                     onPress={() => setSockets(i)}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${i} sockets`}
+                    accessibilityState={{ selected: sockets === i }}
                   >
                     <Text
                       style={[
@@ -1057,6 +1110,7 @@ function EditItemModal({
             value={notes}
             onChangeText={setNotes}
             multiline
+            accessibilityLabel="Item notes"
           />
 
           <Text style={styles.label}>Quantity</Text>
@@ -1065,6 +1119,7 @@ function EditItemModal({
             keyboardType="number-pad"
             value={quantity}
             onChangeText={setQuantity}
+            accessibilityLabel="Item quantity"
           />
 
           <Text style={styles.label}>Location</Text>
@@ -1072,6 +1127,9 @@ function EditItemModal({
             <Pressable
               style={[styles.segment, !location && styles.segmentActive]}
               onPress={() => setLocation(null)}
+              accessibilityRole="radio"
+              accessibilityLabel="Unspecified location"
+              accessibilityState={{ selected: !location }}
             >
               <Text
                 style={[
@@ -1090,6 +1148,9 @@ function EditItemModal({
                   location === loc && styles.segmentActive,
                 ]}
                 onPress={() => setLocation(loc)}
+                accessibilityRole="radio"
+                accessibilityLabel={String(loc)}
+                accessibilityState={{ selected: location === loc }}
               >
                 <Text
                   style={[
@@ -1121,20 +1182,34 @@ function EditItemModal({
             <Pressable
               style={styles.ghostBtn}
               onPress={() => target && onMove(target)}
+              accessibilityRole="button"
+              accessibilityLabel="Move item to another container"
             >
               <Text style={styles.ghostBtnText}>Move</Text>
             </Pressable>
-            <Pressable style={styles.dangerBtn} onPress={onDelete}>
+            <Pressable
+              style={styles.dangerBtn}
+              onPress={onDelete}
+              accessibilityRole="button"
+              accessibilityLabel="Delete item"
+            >
               <Text style={styles.dangerBtnText}>Delete</Text>
             </Pressable>
           </View>
 
           <View style={styles.sheetRow}>
-            <Pressable style={styles.ghostBtn} onPress={onClose}>
+            <Pressable
+              style={styles.ghostBtn}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <Text style={styles.ghostBtnText}>Cancel</Text>
             </Pressable>
             <Pressable
               style={styles.primaryBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Save item changes"
               onPress={() =>
                 onSave({
                   notes: notes.trim() || null,
@@ -1207,6 +1282,12 @@ function MoveItemModal({
                   key={c.id}
                   style={styles.moveRow}
                   onPress={() => onSelect(c.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Move to ${c.name}, ${
+                    c.type === 'shared_stash'
+                      ? 'shared stash'
+                      : `${c.class ?? 'unknown'} level ${c.level ?? 'unset'}`
+                  }`}
                 >
                   <Text style={styles.moveName}>{c.name}</Text>
                   <Text style={styles.moveMeta}>
@@ -1218,7 +1299,12 @@ function MoveItemModal({
               ))
             )}
           </ScrollView>
-          <Pressable style={styles.cancelBtn} onPress={onClose}>
+          <Pressable
+            style={styles.cancelBtn}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+          >
             <Text style={styles.ghostBtnText}>Cancel</Text>
           </Pressable>
         </View>
@@ -1280,6 +1366,12 @@ function BulkMoveModal({
                   key={c.id}
                   style={styles.moveRow}
                   onPress={() => onSelect(c.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Move to ${c.name}, ${
+                    c.type === 'shared_stash'
+                      ? 'shared stash'
+                      : `${c.class ?? 'unknown'} level ${c.level ?? 'unset'}`
+                  }`}
                 >
                   <Text style={styles.moveName}>{c.name}</Text>
                   <Text style={styles.moveMeta}>
@@ -1291,7 +1383,12 @@ function BulkMoveModal({
               ))
             )}
           </ScrollView>
-          <Pressable style={styles.cancelBtn} onPress={onClose}>
+          <Pressable
+            style={styles.cancelBtn}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+          >
             <Text style={styles.ghostBtnText}>Cancel</Text>
           </Pressable>
         </View>
@@ -1380,6 +1477,7 @@ function BulkTagModal({
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="done"
+            accessibilityLabel="Add tag to selected items"
           />
           {suggestions.length > 0 ? (
             <View style={styles.suggestionRow}>
@@ -1411,6 +1509,8 @@ function BulkTagModal({
                     key={t}
                     onPress={() => applyRemove(t)}
                     style={styles.removeTagChip}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove tag ${t} from selected items`}
                   >
                     <Text style={styles.removeTagText}>{t} ×</Text>
                   </Pressable>
@@ -1419,7 +1519,12 @@ function BulkTagModal({
             </>
           ) : null}
 
-          <Pressable style={styles.cancelBtn} onPress={onClose}>
+          <Pressable
+            style={styles.cancelBtn}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
             <Text style={styles.ghostBtnText}>Close</Text>
           </Pressable>
         </View>

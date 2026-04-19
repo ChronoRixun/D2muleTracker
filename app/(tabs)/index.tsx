@@ -200,7 +200,11 @@ export default function MulesScreen() {
         </EmberBtn>
       </View>
 
-      <FAB onPress={() => setShowAddContainer(true)} icon="plus" />
+      <FAB
+        onPress={() => setShowAddContainer(true)}
+        icon="plus"
+        accessibilityLabel="Add mule or stash"
+      />
 
       <AddRealmModal
         visible={showAddRealm}
@@ -272,6 +276,7 @@ function AddRealmModal({ visible, onClose, onCreate }: AddRealmModalProps) {
               placeholderTextColor={colors.textDim}
               value={name}
               onChangeText={setName}
+              accessibilityLabel="Realm name"
             />
 
             <FieldLabel>Era</FieldLabel>
@@ -423,6 +428,9 @@ function AddContainerModal({
               autoCapitalize="none"
               value={name}
               onChangeText={setName}
+              accessibilityLabel={
+                type === 'shared_stash' ? 'Stash name' : 'Character name'
+              }
             />
 
             {type === 'character' ? (
@@ -447,6 +455,7 @@ function AddContainerModal({
                   keyboardType="number-pad"
                   value={level}
                   onChangeText={setLevel}
+                  accessibilityLabel="Character level"
                 />
               </>
             ) : null}

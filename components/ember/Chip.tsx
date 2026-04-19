@@ -13,6 +13,8 @@ interface Props {
   color?: string;
   rarity?: string;
   size?: 'sm' | 'md';
+  accessibilityLabel?: string;
+  accessibilityRole?: 'button' | 'radio' | 'checkbox';
 }
 
 export function Chip({
@@ -22,6 +24,8 @@ export function Chip({
   color,
   rarity,
   size = 'md',
+  accessibilityLabel,
+  accessibilityRole = 'button',
 }: Props) {
   const c = color ?? (rarity ? rarityColor(rarity) : colors.gold);
   const pad = size === 'sm'
@@ -61,7 +65,16 @@ export function Chip({
 
   if (!onPress) return body;
 
-  return <Pressable onPress={onPress}>{body}</Pressable>;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel ?? `Filter by ${label}`}
+      accessibilityState={{ selected: !!active }}
+    >
+      {body}
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({

@@ -52,6 +52,9 @@ export function ForgeSeg<T extends string | null = string>({
           <Pressable
             key={String(o.v ?? `__null_${idx}`)}
             onPress={handlePress}
+            accessibilityRole="radio"
+            accessibilityLabel={o.l}
+            accessibilityState={{ selected: on }}
             style={[
               styles.cell,
               {
