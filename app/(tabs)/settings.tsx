@@ -1,30 +1,50 @@
+/**
+ * The Forge — settings tab, "Anvil" redesign.
+ *
+ * Hero AnvilPanel with live aggregate stats up top, promoted REALMS card
+ * list, three-tier MotionIntensityPicker inside a RITES card, then density
+ * + default-sort segs, backup data rows, and an INSCRIBED about block.
+ *
+ * RealmEditorSheet / ImportSheet handle the two modal surfaces; CRUD is
+ * unchanged from the old settings screen.
+ */
+
 import Constants from 'expo-constants';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as StoreReview from 'expo-store-review';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Chip } from '@/components/ember/Chip';
+import { AnvilPanel } from '@/components/ember/AnvilPanel';
+import { Diamond } from '@/components/ember/Diamond';
+import { EIcon } from '@/components/ember/EIcon';
 import { EmberBG } from '@/components/ember/EmberBG';
 import { EmberBtn } from '@/components/ember/EmberBtn';
+import { ForgeSeg } from '@/components/ember/ForgeSeg';
 import { MotionIntensityPicker } from '@/components/ember/MotionIntensityPicker';
-import { Rule } from '@/components/ember/Rule';
-import { SectionHead } from '@/components/ember/SectionHead';
-import { RealmTag } from '@/components/RealmTag';
+import { RealmTagStrip } from '@/components/ember/RealmTagStrip';
+import { RuneStat } from '@/components/ember/RuneStat';
+import { ChronicleHeading } from '@/components/forge/ChronicleHeading';
+import { DataRow } from '@/components/forge/DataRow';
+import { ImportSheet } from '@/components/forge/ImportSheet';
+import { RealmEditorSheet } from '@/components/forge/RealmEditorSheet';
+import { RiteRow } from '@/components/forge/RiteRow';
 import {
   BackupPayload,
+  countItemsByRealm,
+  countMulesByRealm,
+  countRunesByRealm,
   createRealm,
   deleteRealm,
   exportAll,
@@ -34,40 +54,78 @@ import {
 } from '@/db/queries';
 import { useDatabase } from '@/hooks/useDatabase';
 import { useSettings } from '@/lib/settings';
-import { colors, fontSize, radius, spacing, typography } from '@/lib/theme';
-import type { Era, Ladder, Mode, Realm, Region } from '@/lib/types';
+import { colors, spacing, typography } from '@/lib/theme';
+import type { Realm } from '@/lib/types';
+import { formatBytes, timeAgo } from '@/lib/timeAgo';
 
-const REGION_OPTIONS: Array<{ value: Region; label: string }> = [
-  { value: null, label: 'None' },
-  { value: 'americas', label: 'Americas' },
-  { value: 'europe', label: 'Europe' },
-  { value: 'asia', label: 'Asia' },
-];
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+
+const CREDITS_TEXT =
+  'Hoard v' +
+  APP_VERSION +
+  '\n\n' +
+  'Item database — blizzhackers/d2data (MIT license).\n' +
+  'github.com/blizzhackers/d2data\n\n' +
+  'Item type icons by Lorc, Delapouite, and contributors\n' +
+  'from game-icons.net, licensed under CC BY 3.0.\n' +
+  'Icons have been recolored to match the app theme.\n\n' +
+  'Built with Expo + React Native.';
 
 export default function SettingsScreen() {
   const { db, bumpRevision, revision } = useDatabase();
-  const { density, setDensity, setTutorialCompleted } = useSettings();
+  const {
+    density,
+    setDensity,
+    defaultSort,
+    setDefaultSort,
+    setTutorialCompleted,
+    lastBackupAt,
+    lastBackupSize,
+    markBackup,
+  } = useSettings();
+
   const [realms, setRealms] = useState<Realm[]>([]);
+  const [muleCounts, setMuleCounts] = useState<Record<string, number>>({});
+  const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
+  const [runeCounts, setRuneCounts] = useState<Record<string, number>>({});
   const [editing, setEditing] = useState<Realm | 'new' | null>(null);
   const [importText, setImportText] = useState('');
   const [importVisible, setImportVisible] = useState(false);
 
-  const reload = useCallback(() => {
-    listRealms(db).then(setRealms);
+  const reload = useCallback(async () => {
+    const [r, m, i, ru] = await Promise.all([
+      listRealms(db),
+      countMulesByRealm(db),
+      countItemsByRealm(db),
+      countRunesByRealm(db),
+    ]);
+    setRealms(r);
+    setMuleCounts(m);
+    setItemCounts(i);
+    setRuneCounts(ru);
   }, [db]);
 
   useEffect(() => {
     reload();
   }, [reload, revision]);
 
+  const totals = useMemo(() => {
+    const sum = (rec: Record<string, number>) =>
+      Object.values(rec).reduce((a, b) => a + b, 0);
+    return {
+      realms: realms.length,
+      mules: sum(muleCounts),
+      items: sum(itemCounts),
+      runes: sum(runeCounts),
+    };
+  }, [realms, muleCounts, itemCounts, runeCounts]);
+
   const handleExport = async () => {
     const payload = await exportAll(db);
     const json = JSON.stringify(payload, null, 2);
+    markBackup(json.length);
     try {
-      await Share.share({
-        title: 'Hoard Backup',
-        message: json,
-      });
+      await Share.share({ title: 'Hoard Backup', message: json });
     } catch {
       // Ignore cancel / unsupported.
     }
@@ -79,6 +137,7 @@ export default function SettingsScreen() {
     const file = new File(Paths.document, `hoard-backup-${Date.now()}.json`);
     file.create();
     file.write(json);
+    markBackup(json.length);
     Alert.alert('Backup saved', file.uri);
   };
 
@@ -113,569 +172,558 @@ export default function SettingsScreen() {
     }
   };
 
+  const backupAgo = timeAgo(lastBackupAt);
+  const backupSize = formatBytes(lastBackupSize);
+  const backupDetail =
+    backupAgo === 'never'
+      ? 'never'
+      : backupSize
+        ? `last · ${backupAgo} · ${backupSize}`
+        : `last · ${backupAgo}`;
+
   return (
-    <View style={styles.container}>
+    <View style={styles.shell}>
       <EmberBG />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <SectionHead eyebrow="The Anvil" title="FORGE" />
-        <ScrollView
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
-        >
-          <View style={{ marginBottom: spacing.md }}>
-            <Rule label="Motion Intensity" accent={colors.ember} />
-          </View>
-          <MotionIntensityPicker />
+        <View style={styles.eyebrow}>
+          <Diamond size={7} color={colors.ember} />
+          <Text style={styles.eyebrowText}>CHRONICLE IV · THE ANVIL</Text>
+        </View>
 
-          <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
-            <Rule label="Density" accent={colors.ember} />
-          </View>
-          <View style={styles.chipWrap}>
-            <Chip
-              label="Comfortable"
-              active={density === 'comfortable'}
-              onPress={() => setDensity('comfortable')}
-            />
-            <Chip
-              label="Dense"
-              active={density === 'dense'}
-              onPress={() => setDensity('dense')}
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {/* HERO */}
+          <AnvilPanel glow style={styles.hero}>
+            <View style={styles.heroHead}>
+              <EIcon name="fire" size={18} color={colors.ember} />
+              <Text style={styles.heroTitle}>FORGE</Text>
+              <Text style={styles.heroVersion}>v{APP_VERSION}</Text>
+            </View>
+            <Text style={styles.heroTagline}>the hammer that binds the hoard</Text>
+            <View style={styles.heroStats}>
+              <RuneStat value={totals.realms} label="Realms" color={colors.gold} />
+              <RuneStat value={totals.mules} label="Mules" color={colors.text} />
+              <RuneStat value={totals.items} label="Items" color={colors.text} />
+              <RuneStat value={totals.runes} label="Runes" color={colors.rune} />
+            </View>
+            <View style={styles.backupPill}>
+              <View style={styles.greenDot} />
+              <Text style={styles.backupText} numberOfLines={1}>
+                <Text style={{ color: colors.textDim }}>LAST BACKUP · </Text>
+                <Text style={{ color: colors.text }}>{backupAgo}</Text>
+                {backupSize ? (
+                  <>
+                    <Text style={{ color: colors.textDim }}> · </Text>
+                    <Text style={{ color: colors.textMuted }}>{backupSize}</Text>
+                  </>
+                ) : null}
+              </Text>
+              <EIcon name="check" size={12} color={colors.success} />
+            </View>
+          </AnvilPanel>
+
+          {/* REALMS */}
+          <View style={{ marginTop: spacing.lg }}>
+            <ChronicleHeading
+              label="REALMS"
+              count={realms.length}
+              color={colors.gold}
+              right={
+                <Pressable
+                  onPress={() => setEditing('new')}
+                  style={styles.bindNew}
+                  hitSlop={6}
+                >
+                  <EIcon name="plus" size={11} color={colors.ember} />
+                  <Text style={styles.bindNewText}>BIND NEW</Text>
+                </Pressable>
+              }
             />
           </View>
 
-          <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
-            <Rule label="Realms" accent={colors.gold} />
-          </View>
           {realms.length === 0 ? (
-            <Text style={styles.hint}>No realms yet.</Text>
+            <Text style={styles.emptyHint}>
+              No realms yet. Forge your first one above.
+            </Text>
           ) : (
-            realms.map((r) => (
-              <Pressable
-                key={r.id}
-                style={styles.realmRow}
-                onPress={() => setEditing(r)}
-              >
-                <RealmTag realm={r} />
-                <Text style={styles.chev}>›</Text>
-              </Pressable>
-            ))
+            <View style={{ gap: 6 }}>
+              {realms.map((r, idx) => (
+                <RealmCard
+                  key={r.id}
+                  realm={r}
+                  highlighted={idx === 0}
+                  mules={muleCounts[r.id] ?? 0}
+                  items={itemCounts[r.id] ?? 0}
+                  runes={runeCounts[r.id] ?? 0}
+                  onPress={() => setEditing(r)}
+                />
+              ))}
+            </View>
           )}
-          <View style={{ marginTop: spacing.sm }}>
-            <EmberBtn variant="ghost" full onPress={() => setEditing('new')}>
-              + Add Realm
-            </EmberBtn>
+
+          {/* RITES */}
+          <View style={{ marginTop: spacing.xl }}>
+            <ChronicleHeading label="RITES" color={colors.ember} />
           </View>
 
-          <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
-            <Rule label="Data" accent={colors.gold} />
-          </View>
-          <View style={{ gap: spacing.sm }}>
-            <EmberBtn variant="outline" full onPress={handleExport}>
-              Export (Share JSON)
-            </EmberBtn>
-            <EmberBtn variant="outline" full onPress={handleWriteBackupFile}>
-              Save Backup File
-            </EmberBtn>
-            <EmberBtn
-              variant="outline"
-              full
-              onPress={() => setImportVisible(true)}
-            >
-              Import JSON…
-            </EmberBtn>
+          <View style={styles.motionCard}>
+            <View style={styles.motionHead}>
+              <Text style={styles.motionTitle}>Motion Intensity</Text>
+              <Text style={styles.motionScope}>APPLIED APP-WIDE</Text>
+            </View>
+            <MotionIntensityPicker />
           </View>
 
-          <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
-            <Rule label="About" accent={colors.gold} />
+          <AnvilPanel style={styles.ritesPanel}>
+            <RiteRow
+              label="Density"
+              hint="rows per screen"
+              control={
+                <ForgeSeg
+                  value={density}
+                  onChange={setDensity}
+                  options={[
+                    { v: 'comfortable', l: 'Comfy' },
+                    { v: 'dense', l: 'Dense' },
+                  ]}
+                />
+              }
+            />
+            <RiteRow
+              label="Default sort"
+              last
+              control={
+                <ForgeSeg
+                  value={defaultSort}
+                  onChange={setDefaultSort}
+                  small
+                  options={[
+                    { v: 'rarity', l: 'Rarity' },
+                    { v: 'name', l: 'Name' },
+                    { v: 'added', l: 'Added' },
+                  ]}
+                />
+              }
+            />
+          </AnvilPanel>
+
+          {/* CHRONICLE — backup */}
+          <View style={{ marginTop: spacing.xl }}>
+            <ChronicleHeading label="CHRONICLE · BACKUP" color={colors.gold} />
           </View>
-          <Text style={styles.about}>
-            Hoard v
-            {Constants.expoConfig?.version ?? '1.0.0'}
-            {'\n'}
-            Offline inventory catalog for Diablo 2 Resurrected.{'\n\n'}
-            Item database sourced from blizzhackers/d2data (MIT license).
-            {'\n'}
-            github.com/blizzhackers/d2data{'\n\n'}
-            Item type icons by Lorc, Delapouite, and contributors{'\n'}
-            from game-icons.net, licensed under CC BY 3.0.{'\n'}
-            Icons have been recolored to match the app theme.{'\n\n'}
-            Built with Expo + React Native.
+          <Text style={styles.sectionLead}>
+            Everything in the hoard — realms, mules, items, tags, runes — rendered as JSON.
           </Text>
-          <View style={{ marginTop: spacing.md }}>
-            <EmberBtn
-              variant="ghost"
-              full
-              onPress={async () => {
-                try {
-                  if (await StoreReview.hasAction()) {
-                    await StoreReview.requestReview();
-                  }
-                } catch {
-                  // Ignore: review prompt unavailable on this platform.
-                }
-              }}
-            >
-              Rate This App
-            </EmberBtn>
+          <View style={{ gap: 6 }}>
+            <DataRow
+              icon="upload"
+              label="Share JSON"
+              detail="via system share sheet"
+              onPress={handleExport}
+            />
+            <DataRow
+              icon="download"
+              label="Save Backup File"
+              detail={backupDetail}
+              strong
+              onPress={handleWriteBackupFile}
+            />
+            <DataRow
+              icon="scroll"
+              label="Import from JSON"
+              detail="merge or replace"
+              onPress={() => setImportVisible(true)}
+            />
           </View>
-          <View style={{ marginTop: spacing.sm }}>
-            <EmberBtn
-              variant="ghost"
-              full
-              onPress={() => {
-                setTutorialCompleted(false);
-                Alert.alert(
-                  'Tutorial Reset',
-                  'The tutorial will show the next time you open the app.',
-                );
-              }}
-            >
-              Replay Tutorial
-            </EmberBtn>
+
+          {/* INSCRIBED */}
+          <View style={{ marginTop: spacing.xl }}>
+            <ChronicleHeading label="INSCRIBED" color={colors.gold} />
+          </View>
+          <View style={styles.inscribedCard}>
+            <Text style={styles.inscribedTitle}>HOARD · v{APP_VERSION}</Text>
+            <Text style={styles.inscribedTagline}>
+              &ldquo;even in hell, the damned keep ledgers.&rdquo;
+            </Text>
+            <Text style={styles.inscribedCredits}>
+              <Text>Data · </Text>
+              <Text style={{ color: colors.textDim }}>blizzhackers/d2data</Text>
+              <Text> · MIT{'\n'}</Text>
+              <Text>Icons · </Text>
+              <Text style={{ color: colors.textDim }}>game-icons.net</Text>
+              <Text> · CC BY 3.0{'\n'}</Text>
+              <Text>Built with Expo · React Native</Text>
+            </Text>
+          </View>
+          <View style={styles.inscribedActions}>
+            <View style={{ flex: 1 }}>
+              <EmberBtn
+                variant="outline"
+                size="sm"
+                full
+                onPress={async () => {
+                  try {
+                    if (await StoreReview.hasAction()) {
+                      await StoreReview.requestReview();
+                    }
+                  } catch {
+                    // Ignore: review unavailable.
+                  }
+                }}
+              >
+                Rate App
+              </EmberBtn>
+            </View>
+            <View style={{ flex: 1 }}>
+              <EmberBtn
+                variant="outline"
+                size="sm"
+                full
+                onPress={() => {
+                  setTutorialCompleted(false);
+                  Alert.alert(
+                    'Tutorial Reset',
+                    'The tutorial will show the next time you open the app.',
+                  );
+                }}
+              >
+                Replay Tutorial
+              </EmberBtn>
+            </View>
+            <View style={{ flex: 1 }}>
+              <EmberBtn
+                variant="outline"
+                size="sm"
+                full
+                onPress={() => Alert.alert('Credits', CREDITS_TEXT)}
+              >
+                Credits
+              </EmberBtn>
+            </View>
           </View>
         </ScrollView>
 
-      <RealmEditor
-        target={editing}
-        onClose={() => setEditing(null)}
-        onSave={async (payload) => {
-          if (editing === 'new') {
-            await createRealm(db, payload);
-          } else if (editing) {
-            await updateRealm(db, editing.id, payload);
-          }
-          setEditing(null);
-          bumpRevision();
-        }}
-        onDelete={async () => {
-          if (editing && editing !== 'new') {
-            Alert.alert(
-              'Delete realm?',
-              `"${editing.name}" and all its mules, stashes, and items will be permanently removed.`,
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: async () => {
-                    await deleteRealm(db, editing.id);
-                    setEditing(null);
-                    bumpRevision();
-                  },
-                },
-              ],
-            );
-          }
-        }}
-      />
-
-      <Modal
-        visible={importVisible}
-        animationType="slide"
-        onRequestClose={() => setImportVisible(false)}
-      >
-        <SafeAreaView style={styles.container}>
-          <View style={{ padding: spacing.lg, flex: 1 }}>
-            <Text style={styles.sectionTitle}>Import Backup</Text>
-            <Text style={styles.hint}>
-              Pick a backup .json file or paste the payload below. Merge keeps
-              existing data; Replace wipes the database first.
-            </Text>
-            <Pressable style={styles.rowBtn} onPress={handlePickFile}>
-              <Text style={styles.rowBtnText}>Pick File…</Text>
-            </Pressable>
-            <TextInput
-              style={[styles.input, { flex: 1, textAlignVertical: 'top', marginTop: spacing.sm }]}
-              multiline
-              value={importText}
-              onChangeText={setImportText}
-              placeholder="{ ...backup json... }"
-              placeholderTextColor={colors.textDim}
-            />
-          </View>
-          <View style={styles.footer}>
-            <Pressable
-              style={styles.ghostBtn}
-              onPress={() => setImportVisible(false)}
-            >
-              <Text style={styles.ghostBtnText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={styles.rowBtn}
-              onPress={() => handleImport('merge')}
-            >
-              <Text style={styles.rowBtnText}>Merge</Text>
-            </Pressable>
-            <Pressable
-              style={styles.dangerBtn}
-              onPress={() =>
-                Alert.alert(
-                  'Replace all data?',
-                  'This wipes everything before import.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Replace',
-                      style: 'destructive',
-                      onPress: () => handleImport('replace'),
+        <RealmEditorSheet
+          target={editing}
+          onClose={() => setEditing(null)}
+          onSave={async (payload) => {
+            if (editing === 'new') {
+              await createRealm(db, payload);
+            } else if (editing) {
+              await updateRealm(db, editing.id, payload);
+            }
+            setEditing(null);
+            bumpRevision();
+          }}
+          onDelete={() => {
+            if (editing && editing !== 'new') {
+              const r = editing;
+              Alert.alert(
+                'Delete realm?',
+                `"${r.name}" and all its mules, stashes, and items will be permanently removed.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                      await deleteRealm(db, r.id);
+                      setEditing(null);
+                      bumpRevision();
                     },
-                  ],
-                )
-              }
-            >
-              <Text style={styles.dangerBtnText}>Replace</Text>
-            </Pressable>
-            </View>
-          </SafeAreaView>
-        </Modal>
+                  },
+                ],
+              );
+            }
+          }}
+        />
+
+        <ImportSheet
+          visible={importVisible}
+          importText={importText}
+          setImportText={setImportText}
+          onClose={() => setImportVisible(false)}
+          onPickFile={handlePickFile}
+          onImport={handleImport}
+        />
       </SafeAreaView>
     </View>
   );
 }
 
-// ---- Realm editor ---------------------------------------------------------
-
-interface RealmEditorProps {
-  target: Realm | 'new' | null;
-  onClose: () => void;
-  onSave: (input: Omit<Realm, 'id' | 'createdAt'>) => void;
-  onDelete: () => void;
+interface RealmCardProps {
+  realm: Realm;
+  highlighted: boolean;
+  mules: number;
+  items: number;
+  runes: number;
+  onPress: () => void;
 }
 
-function RealmEditor({ target, onClose, onSave, onDelete }: RealmEditorProps) {
-  const [name, setName] = useState('');
-  const [era, setEra] = useState<Era>('rotw');
-  const [mode, setMode] = useState<Mode>('softcore');
-  const [ladder, setLadder] = useState<Ladder>('ladder');
-  const [region, setRegion] = useState<Region>(null);
-
-  useEffect(() => {
-    if (target && target !== 'new') {
-      setName(target.name);
-      setEra(target.era);
-      setMode(target.mode);
-      setLadder(target.ladder);
-      setRegion(target.region ?? null);
-    } else if (target === 'new') {
-      setName('');
-      setEra('rotw');
-      setMode('softcore');
-      setLadder('ladder');
-      setRegion(null);
-    }
-  }, [target]);
-
-  const visible = target !== null;
-  const isNew = target === 'new';
-
+function RealmCard({
+  realm,
+  highlighted,
+  mules,
+  items,
+  runes,
+  onPress,
+}: RealmCardProps) {
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.realmCard,
+        {
+          borderColor: highlighted ? colors.borderGold : colors.border,
+          borderLeftWidth: 3,
+          borderLeftColor: highlighted ? colors.gold : colors.borderGold,
+        },
+      ]}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>
-            {isNew ? 'New Realm' : 'Edit Realm'}
-          </Text>
-
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. RoTW S13 SC Ladder"
-            placeholderTextColor={colors.textDim}
+      {highlighted ? (
+        <LinearGradient
+          colors={['rgba(232,176,72,0.08)', 'transparent']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 0.7, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : null}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.realmName} numberOfLines={1}>
+          {realm.name}
+        </Text>
+        <View style={{ marginTop: 5 }}>
+          <RealmTagStrip
+            era={realm.era}
+            mode={realm.mode}
+            ladder={realm.ladder}
+            region={realm.region}
           />
-
-          <Text style={styles.label}>Era</Text>
-          <Row
-            value={era}
-            onChange={setEra}
-            options={[
-              { value: 'classic', label: 'Classic' },
-              { value: 'lod', label: 'LoD' },
-              { value: 'rotw', label: 'RoTW' },
-            ]}
-          />
-
-          <Text style={styles.label}>Mode</Text>
-          <Row
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'softcore', label: 'Softcore' },
-              { value: 'hardcore', label: 'Hardcore' },
-            ]}
-          />
-
-          <Text style={styles.label}>Ladder</Text>
-          <Row
-            value={ladder}
-            onChange={setLadder}
-            options={[
-              { value: 'ladder', label: 'Ladder' },
-              { value: 'nonladder', label: 'Non-ladder' },
-            ]}
-          />
-
-          <Text style={styles.label}>Region</Text>
-          <View style={styles.segmentWrap}>
-            {REGION_OPTIONS.map((o) => (
-              <Pressable
-                key={o.label}
-                style={[
-                  styles.segment,
-                  region === o.value && styles.segmentActive,
-                ]}
-                onPress={() => setRegion(o.value)}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    region === o.value && styles.segmentTextActive,
-                  ]}
-                >
-                  {o.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={styles.sheetFooter}>
-            {!isNew ? (
-              <Pressable style={styles.dangerBtn} onPress={onDelete}>
-                <Text style={styles.dangerBtnText}>Delete</Text>
-              </Pressable>
-            ) : null}
-            <Pressable style={styles.ghostBtn} onPress={onClose}>
-              <Text style={styles.ghostBtnText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.primaryBtn, !name.trim() && styles.disabled]}
-              onPress={() => {
-                if (!name.trim()) return;
-                onSave({
-                  name: name.trim(),
-                  era,
-                  mode,
-                  ladder,
-                  region,
-                });
-              }}
-              disabled={!name.trim()}
-            >
-              <Text style={styles.primaryBtnText}>Save</Text>
-            </Pressable>
-          </View>
         </View>
+        <Text style={styles.realmStats}>
+          <Text style={{ color: colors.text }}>{mules}</Text> MULES ·{' '}
+          <Text style={{ color: colors.text }}>{items}</Text> ITEMS ·{' '}
+          <Text style={{ color: colors.rune }}>{runes}</Text> RUNES
+        </Text>
       </View>
-    </Modal>
-  );
-}
-
-function Row<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: Array<{ value: T; label: string }>;
-}) {
-  return (
-    <View style={styles.segmentWrap}>
-      {options.map((o) => (
-        <Pressable
-          key={o.value}
-          style={[styles.segment, value === o.value && styles.segmentActive]}
-          onPress={() => onChange(o.value)}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              value === o.value && styles.segmentTextActive,
-            ]}
-          >
-            {o.label}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
+      <EIcon name="chevron-right" size={14} color={colors.textDim} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  sectionTitle: {
-    color: colors.gold,
-    fontFamily: typography.displaySemi,
-    fontSize: 18,
-    letterSpacing: 2.5,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  hint: {
-    color: colors.textMuted,
-    fontFamily: typography.mono,
-    fontSize: 11,
-    letterSpacing: 1,
-    marginBottom: spacing.md,
-    lineHeight: 18,
-  },
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  about: {
-    color: colors.textMuted,
-    fontFamily: typography.mono,
-    fontSize: 11,
-    letterSpacing: 0.5,
-    lineHeight: 18,
-  },
+  shell: { flex: 1, backgroundColor: colors.bg },
+  scroll: { padding: spacing.lg, paddingBottom: 120 },
 
-  realmRow: {
+  eyebrow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    marginVertical: 3,
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
+    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
-  chev: {
+  eyebrowText: {
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 3,
     color: colors.textDim,
-    fontSize: fontSize.xl,
-  },
-  rowBtn: {
-    padding: spacing.md,
-    marginVertical: 3,
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  rowBtnText: {
-    color: colors.text,
-    fontWeight: '600',
-    fontSize: fontSize.md,
+    textTransform: 'uppercase',
   },
 
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+  hero: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
   },
-  sheet: {
-    backgroundColor: colors.bg,
-    padding: spacing.lg,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    gap: spacing.xs,
-  },
-  sheetTitle: {
-    color: colors.primary,
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
-  sheetFooter: {
+  heroHead: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
+    alignItems: 'center',
+    gap: 10,
   },
-
-  label: {
+  heroTitle: {
+    flex: 1,
+    fontFamily: typography.displaySemi,
+    fontSize: 26,
+    color: colors.gold,
+    letterSpacing: 4,
+    fontWeight: '600',
+    textShadowColor: 'rgba(255,80,32,0.4)',
+    textShadowRadius: 18,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  heroVersion: {
+    fontFamily: typography.mono,
+    fontSize: 9,
+    letterSpacing: 2,
     color: colors.textMuted,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    marginTop: spacing.md,
-    marginBottom: 2,
   },
-  input: {
-    backgroundColor: colors.card,
-    color: colors.text,
-    fontSize: fontSize.md,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  heroTagline: {
+    fontFamily: typography.hand,
+    fontSize: 13,
+    color: colors.textDim,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
-  primaryBtn: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: colors.bg,
-    fontWeight: '700',
-    fontSize: fontSize.md,
-  },
-  ghostBtn: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  ghostBtnText: {
-    color: colors.text,
-    fontWeight: '600',
-    fontSize: fontSize.md,
-  },
-  dangerBtn: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    alignItems: 'center',
-  },
-  dangerBtnText: {
-    color: colors.danger,
-    fontWeight: '600',
-    fontSize: fontSize.md,
-  },
-  disabled: { opacity: 0.4 },
-
-  segmentWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  segment: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  segmentActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  segmentText: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-  },
-  segmentTextActive: {
-    color: colors.bg,
-    fontWeight: '700',
-  },
-
-  footer: {
-    flexDirection: 'row',
-    padding: spacing.lg,
+  heroStats: {
+    marginTop: 14,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    gap: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  backupPill: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  greenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.success,
+    shadowColor: colors.success,
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+  backupText: {
+    flex: 1,
+    fontFamily: typography.mono,
+    fontSize: 10,
+    letterSpacing: 1.5,
+  },
+
+  bindNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  bindNewText: {
+    fontFamily: typography.mono,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: colors.ember,
+    fontWeight: '700',
+  },
+  emptyHint: {
+    color: colors.textMuted,
+    fontFamily: typography.hand,
+    fontStyle: 'italic',
+    fontSize: 13,
+    paddingVertical: 12,
+  },
+
+  realmCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    overflow: 'hidden',
+  },
+  realmName: {
+    fontFamily: typography.displaySemi,
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  realmStats: {
+    marginTop: 6,
+    fontFamily: typography.mono,
+    fontSize: 9,
+    color: colors.textDim,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+
+  motionCard: {
+    padding: 14,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 10,
+  },
+  motionHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  motionTitle: {
+    fontFamily: typography.displaySemi,
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+  },
+  motionScope: {
+    fontFamily: typography.mono,
+    fontSize: 9,
+    color: colors.textDim,
+    letterSpacing: 1.5,
+  },
+  ritesPanel: {
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+  },
+
+  sectionLead: {
+    fontFamily: typography.body,
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+
+  inscribedCard: {
+    padding: 14,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.borderGold,
+    marginBottom: 10,
+  },
+  inscribedTitle: {
+    fontFamily: typography.displaySemi,
+    fontSize: 14,
+    color: colors.gold,
+    fontWeight: '600',
+    letterSpacing: 2,
+  },
+  inscribedTagline: {
+    fontFamily: typography.hand,
+    fontSize: 13,
+    color: colors.textDim,
+    marginTop: 6,
+    fontStyle: 'italic',
+    lineHeight: 19,
+  },
+  inscribedCredits: {
+    fontFamily: typography.mono,
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 10,
+    letterSpacing: 1,
+    lineHeight: 17,
+  },
+  inscribedActions: {
+    flexDirection: 'row',
+    gap: 6,
   },
 });

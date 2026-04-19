@@ -32,17 +32,24 @@ import { AccessibilityInfo } from 'react-native';
 
 export type Motion = 'subtle' | 'nightmare' | 'hellforge';
 export type Density = 'comfortable' | 'dense';
+export type DefaultSort = 'rarity' | 'name' | 'added';
 
 export interface Settings {
   motion: Motion;
   density: Density;
   tutorialCompleted: boolean;
+  defaultSort: DefaultSort;
+  lastBackupAt: string | null;
+  lastBackupSize: number | null;
 }
 
 const DEFAULTS: Settings = {
   motion: 'hellforge',
   density: 'comfortable',
   tutorialCompleted: false,
+  defaultSort: 'rarity',
+  lastBackupAt: null,
+  lastBackupSize: null,
 };
 
 const SETTINGS_FILENAME = 'ember-settings.json';
@@ -54,6 +61,8 @@ interface SettingsContextValue extends Settings {
   setMotion: (m: Motion) => void;
   setDensity: (d: Density) => void;
   setTutorialCompleted: (completed: boolean) => void;
+  setDefaultSort: (d: DefaultSort) => void;
+  markBackup: (sizeBytes: number) => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -67,6 +76,21 @@ function coerceMotion(raw: unknown): Motion {
   return DEFAULTS.motion;
 }
 
+function coerceDefaultSort(raw: unknown): DefaultSort {
+  if (raw === 'name' || raw === 'added' || raw === 'rarity') return raw;
+  return DEFAULTS.defaultSort;
+}
+
+function coerceLastBackupAt(raw: unknown): string | null {
+  if (typeof raw === 'string' && !Number.isNaN(Date.parse(raw))) return raw;
+  return null;
+}
+
+function coerceLastBackupSize(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) return raw;
+  return null;
+}
+
 function readSettings(): Settings {
   try {
     const file = new File(Paths.document, SETTINGS_FILENAME);
@@ -77,6 +101,9 @@ function readSettings(): Settings {
       motion: coerceMotion(parsed.motion),
       density: parsed.density === 'dense' ? 'dense' : 'comfortable',
       tutorialCompleted: parsed.tutorialCompleted === true,
+      defaultSort: coerceDefaultSort(parsed.defaultSort),
+      lastBackupAt: coerceLastBackupAt(parsed.lastBackupAt),
+      lastBackupSize: coerceLastBackupSize(parsed.lastBackupSize),
     };
   } catch {
     return DEFAULTS;
@@ -139,6 +166,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setMotion: (motion) => update({ motion }),
       setDensity: (density) => update({ density }),
       setTutorialCompleted: (tutorialCompleted) => update({ tutorialCompleted }),
+      setDefaultSort: (defaultSort) => update({ defaultSort }),
+      markBackup: (sizeBytes) =>
+        update({
+          lastBackupAt: new Date().toISOString(),
+          lastBackupSize: sizeBytes,
+        }),
     }),
     [state, loaded, update, effectiveMotion, reducedMotion],
   );

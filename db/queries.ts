@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { getItemIndex } from '@/lib/itemIndex';
+import { getItemById, getItemIndex } from '@/lib/itemIndex';
 import type {
   CharacterClass,
   Container,
@@ -428,6 +428,63 @@ export async function recentItemIndexIds(
     [limit],
   );
   return rows.map((r) => r.item_index_id);
+}
+
+// ---- Per-realm aggregate counts ------------------------------------------
+
+export async function countMulesByRealm(
+  db: SQLiteDatabase,
+): Promise<Record<string, number>> {
+  const rows = await db.getAllAsync<{ realm_id: string; c: number }>(
+    `SELECT realm_id, COUNT(*) AS c
+     FROM containers
+     WHERE is_active = 1 AND type = 'character'
+     GROUP BY realm_id`,
+  );
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.realm_id] = r.c;
+  return out;
+}
+
+export async function countItemsByRealm(
+  db: SQLiteDatabase,
+): Promise<Record<string, number>> {
+  const rows = await db.getAllAsync<{ realm_id: string; c: number }>(
+    `SELECT c.realm_id AS realm_id, COUNT(i.id) AS c
+     FROM items i
+     JOIN containers c ON c.id = i.container_id
+     WHERE c.is_active = 1
+     GROUP BY c.realm_id`,
+  );
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.realm_id] = r.c;
+  return out;
+}
+
+export async function countRunesByRealm(
+  db: SQLiteDatabase,
+): Promise<Record<string, number>> {
+  // Pull (realm_id, item_index_id, quantity) joined rows and bucket in JS
+  // against the in-memory item index — keeps SQL simple, leans on ITEM_MAP.
+  const rows = await db.getAllAsync<{
+    realm_id: string;
+    item_index_id: string;
+    quantity: number;
+  }>(
+    `SELECT c.realm_id AS realm_id,
+            i.item_index_id AS item_index_id,
+            i.quantity AS quantity
+     FROM items i
+     JOIN containers c ON c.id = i.container_id
+     WHERE c.is_active = 1`,
+  );
+  const out: Record<string, number> = {};
+  for (const r of rows) {
+    const entry = getItemById(r.item_index_id);
+    if (entry?.category !== 'rune') continue;
+    out[r.realm_id] = (out[r.realm_id] ?? 0) + (r.quantity ?? 0);
+  }
+  return out;
 }
 
 // ---- Cross-container search -----------------------------------------------
