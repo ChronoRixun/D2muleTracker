@@ -16,8 +16,19 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.chronorixun.hoard",
       "buildNumber": "1",
+      "deploymentTarget": "14.0",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": ["E7A1.1"]
+          }
+        ]
       }
     },
     "android": {

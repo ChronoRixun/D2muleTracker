@@ -37,7 +37,9 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
   // Future migrations: add `if (current < N)` blocks here.
 
   if (current !== CURRENT_SCHEMA_VERSION) {
-    // user_version only accepts literal values, not parameters.
+    // Safe: CURRENT_SCHEMA_VERSION is a compile-time constant (number).
+    // PRAGMA statements cannot be parameterized with SQLite placeholders,
+    // so a template literal is the only option here.
     await db.execAsync(`PRAGMA user_version = ${CURRENT_SCHEMA_VERSION};`);
   }
 }
