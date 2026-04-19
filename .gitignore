@@ -10,6 +10,7 @@ npm-debug.*
 *.orig.*
 web-build/
 .DS_Store
+CC_PROMPT*.md
 
 # Local env files
 .env*.local
